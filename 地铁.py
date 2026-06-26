@@ -37,7 +37,7 @@ for i in lst:
             
             for name in set(stations):  # 去重
                 if name:
-                    station_dict[name].append(i)
+                    station_dict[name.strip()].append(i)
 
 # 转换为普通字典
 station_dict = dict(station_dict)
