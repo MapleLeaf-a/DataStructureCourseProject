@@ -2,7 +2,6 @@ from collections import defaultdict
 
 import requests
 import re
-import csv
 
 lst = [*range(1, 19), 41, 51]
 
@@ -55,22 +54,3 @@ print(f"共找到 {len(station_dict)} 个站点\n")
 # 打印全部站点（如果要看全部，取消注释）
 for name, lines in station_dict.items():
     print(f"{name}: 线路 {lines}")
-
-csv_file = "../../data/csv/Station.csv"
-
-header = ["id", "name", "line1", "line2", "line3", "line4", "line5", "status"]
-
-with open(csv_file, "w", encoding="ANSI", newline="") as fp:
-    writer = csv.writer(fp)
-    
-    # 写入表头
-    writer.writerow(header)
-    
-    # 写入数据（按站点名排序）
-    for i, (name, lines) in enumerate(sorted(station_dict.items()), 1):
-        # 构建行数据：id, name, 然后是每条线路，不足的补0
-        row = [i, name] + lines + [0] * (len(header) - 3 - len(lines)) + [1]
-        writer.writerow(row)
-
-print(f"已写入 {len(station_dict)} 条记录到 {csv_file}")
-print(f"表头：{header}")
