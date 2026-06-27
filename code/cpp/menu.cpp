@@ -1,5 +1,6 @@
 #include "menu.h"
 #include <iostream>
+#include <limits>
 using namespace std;
 
 //»Ø³µ¼ÌÐø

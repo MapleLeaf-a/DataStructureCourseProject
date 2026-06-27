@@ -54,19 +54,19 @@ bool sortByTime(const Route& a, const Route& b)
 
 void printRoute(const Route& r, int num)
 {
-    cout << "??" << num << "??·??" << endl;
-    cout << "??????" << r.totalTime << "????" << endl;
-    cout << "?????????" << r.transferCount << endl;
+    cout << "第" << num << " 条路线" << endl;
+    cout << "总耗时：" << r.totalTime << " 分钟" << endl;
+    cout << "换乘次数：" << r.transferCount << endl;
     int allStationNum = r.stationIds.size();
     int realPassNum = allStationNum - r.transferCount;
-    cout << "???????????(????????)??" << realPassNum << endl;
-    cout << "???????";
+    cout << "经过站点数（含换乘重复）：" << realPassNum << endl;
+    cout << "换乘站点：";
     for (int i = 0; i < r.transferSta.size(); i++)
     {
         cout << r.transferSta[i] << " ";
     }
     cout << endl;
-    cout << "?????????";
+    cout << "具体路线：";
     for (int i = 0; i < r.stationIds.size(); i++)
     {
         int id = r.stationIds[i];
@@ -114,7 +114,7 @@ void showKShortestPath(string startName, string endName)
 
     if (paths.empty())
     {
-        cout << "?????·????????/????????" << endl;
+        cout << "未找到可达路径/站点不存在" << endl;
         return;
     }
     for (int i = 0; i < paths.size(); i++)
