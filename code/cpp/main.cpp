@@ -22,15 +22,15 @@ void printAllStation()
 }
 
 // 打印指定站点的邻接边信息（调试用）
-void printAdjTest(vector<vector<Edge>>& g, int testId)
+void printAdjTest(int testId)
 {
     cout << "\n========== 站点" << testId << "邻接线路 ==========\n";
-    if (testId >= g.size())
+    if (testId >= graph.size())
     {
         cout << "该站点无连通边\n";
         return;
     }
-    for (Edge& e : g[testId])
+    for (Edge& e : graph[testId])
     {
         cout << "去往站点" << e.to
             << " | " << e.line_name
@@ -41,6 +41,13 @@ void printAdjTest(vector<vector<Edge>>& g, int testId)
 
 int main()
 {
+    loadStationCSV("data/csv/Station.csv");
+
+    loadEdgeCSV("data/csv/Edge.csv");
+
+    buildLineStations();
+
     runMenuLoop();   // 启动菜单循环
+
     return 0;
 }

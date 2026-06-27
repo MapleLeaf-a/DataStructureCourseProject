@@ -12,8 +12,7 @@
 ## Project state
 
 - `main()` only calls `runMenuLoop()`. CSV loaders (`loadStationCSV`, `loadEdgeCSV`) exist but are **not called from anywhere** — the app is a skeleton that runs the menu loop with empty switch stubs.
-- **`pathfinder.cpp`/`.h`** — fully implemented (437 lines): standard Dijkstra shortest-time, min-transfer Dijkstra (transfers encoded as `trans*10000 + time`), K-shortest variants by iterating and blocking edges of found paths. Handles closed stations and blocked edges.
-- **`path.cpp`/`.h`** — **dead code, do not use.** Overlaps with pathfinder but is broken: calls undefined `dijkstraBlock()` and references nonexistent global `name2id`. It also defines its own `struct Route` (incompatible with pathfinder's). Exclude from builds.
+- **`pathfinder.cpp`/`.h`** — fully implemented (~700 lines). Two Dijkstra variants: shortest-time (time first, transfers as tie-break via `time*10000+trans`) and min-transfer (transfers first via `trans*10000+time`). K-shortest uses A* with pruning: reverse Dijkstra precomputes heuristic `h[v]`, forward tree search with `f=g+h`, prunes branches where `f >= bound` (K-th best so far). Handles closed stations.
 - `main.cpp` defines two helper functions — `printAllStation()` and `printAdjTest()` — that are never called. Useful for debugging.
 - `update_station_status.csv` currently has no data rows (header only).
 - `Station.csv` and `Station_init.csv` currently have identical content (416 stations). `Station_backup.csv` has 525 stations and is not referenced in any code.

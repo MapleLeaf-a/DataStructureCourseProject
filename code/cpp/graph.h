@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <unordered_map>
 using namespace std;
 
 // 邻接表中的边，起点由所在邻接表索引隐式表示
@@ -19,8 +20,14 @@ struct Edge
 };
 
 // 从CSV加载边数据，构建邻接表
-bool loadEdgeCSV(const string& filePath, vector<vector<Edge>>& graph);
+bool loadEdgeCSV(const string& filePath);
 // 按分隔符切割字符串
 vector<string> splitStr(const string& s, char sep);
+
+extern vector<vector<Edge>> graph;                    // 全局邻接表
+extern unordered_map<int, vector<int>> lineStations; // 线路ID -> 按序站点ID列表
+
+// 从邻接表构建线路->站点顺序映射（需在 loadEdgeCSV 之后调用）
+void buildLineStations();
 
 #endif

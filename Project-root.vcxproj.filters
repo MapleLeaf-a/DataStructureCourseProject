@@ -21,9 +21,6 @@
     <ClInclude Include="code\cpp\menu.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="code\cpp\path.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="code\cpp\pathfinder.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -36,9 +33,6 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="code\cpp\menu.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="code\cpp\path.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="code\cpp\pathfinder.cpp">

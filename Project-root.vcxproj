@@ -125,7 +125,6 @@
   <ItemGroup>
     <ClInclude Include="code\cpp\graph.h" />
     <ClInclude Include="code\cpp\menu.h" />
-    <ClInclude Include="code\cpp\path.h" />
     <ClInclude Include="code\cpp\pathfinder.h" />
     <ClInclude Include="code\cpp\station.h" />
   </ItemGroup>
@@ -133,7 +132,6 @@
     <ClCompile Include="code\cpp\graph.cpp" />
     <ClCompile Include="code\cpp\main.cpp" />
     <ClCompile Include="code\cpp\menu.cpp" />
-    <ClCompile Include="code\cpp\path.cpp" />
     <ClCompile Include="code\cpp\pathfinder.cpp" />
     <ClCompile Include="code\cpp\station.cpp" />
   </ItemGroup>

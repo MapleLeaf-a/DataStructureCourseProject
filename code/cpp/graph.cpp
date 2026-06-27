@@ -1,6 +1,10 @@
 #include "graph.h"
 #include <iostream>
 #include <fstream>
+#include <set>
+
+vector<vector<Edge>> graph;                  // 全局邻接表定义
+unordered_map<int, vector<int>> lineStations; // 全局线路站点映射定义
 
 // 按分隔符sep切割字符串s，返回切割后的子串列表
 vector<string> splitStr(const string& s, char sep)
@@ -25,7 +29,7 @@ vector<string> splitStr(const string& s, char sep)
 
 // 从CSV文件读取边数据，构建邻接表graph
 // CSV格式：起点ID, 终点ID, 线路名, 方向, 耗时
-bool loadEdgeCSV(const string& filePath, vector<vector<Edge>>& graph)
+bool loadEdgeCSV(const string& filePath)
 {
     ifstream fin(filePath);
     if (!fin.is_open())
@@ -60,4 +64,52 @@ bool loadEdgeCSV(const string& filePath, vector<vector<Edge>>& graph)
 
     fin.close();
     return true;
+}
+
+// 从邻接表构建线路->站点顺序映射（按 direction 字段分组还原站序）
+void buildLineStations()
+{
+    lineStations.clear();
+    unordered_map<int, unordered_map<string, vector<pair<int, int>>>> lineDirEdges;
+    for (size_t u = 1; u < graph.size(); u++)
+    {
+        for (const Edge& e : graph[u])
+        {
+            int lineId = stoi(e.line_name);
+            lineDirEdges[lineId][e.direction].push_back({ (int)u, e.to });
+        }
+    }
+    for (auto& kv : lineDirEdges)
+    {
+        int lineId = kv.first;
+        auto& edges = kv.second.begin()->second;
+        unordered_map<int, int> indeg;
+        unordered_map<int, int> next;
+        for (auto& pr : edges)
+        {
+            indeg[pr.second]++;
+            next[pr.first] = pr.second;
+        }
+        int start = -1;
+        for (auto& pr : edges)
+        {
+            if (indeg[pr.first] == 0) { start = pr.first; break; }
+        }
+        if (start == -1 && !edges.empty())
+            start = edges[0].first;
+        vector<int> stations;
+        int cur = start;
+        set<int> visited;
+        while (cur != 0 && !visited.count(cur))
+        {
+            stations.push_back(cur);
+            visited.insert(cur);
+            if (next.count(cur))
+                cur = next[cur];
+            else
+                break;
+        }
+        if (!stations.empty())
+            lineStations[lineId] = stations;
+    }
 }

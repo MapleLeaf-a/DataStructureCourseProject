@@ -2,6 +2,7 @@
 #include "graph.h"
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 
 vector<Station> allStations; // 全局站点列表
 
@@ -44,14 +45,20 @@ bool loadStationCSV(const string& path)
         allStations.push_back(sta);
     }
     fin.close();
+
+    sort(allStations.begin(), allStations.end(),
+        [](const Station& a, const Station& b) { return a.id < b.id; });
+
     return true;
 }
 
+// 重新加载初始CSV
 bool restoreInitStation(const string& path)
 {
-    return loadStationCSV(path);   // 直接重新加载初始CSV
+    return loadStationCSV(path);   
 }
 
+// 更新站点开关状态
 bool setStationOpen(int sid, bool open)
 {
     for (auto& s : allStations)
@@ -59,11 +66,36 @@ bool setStationOpen(int sid, bool open)
         if (s.id == sid)
         {
             s.isOpen = open;
+            cout << "\n已修改站点状态\n";
             return true;
         }
     }
     return false;
 }
+
+//// 设置多个站点开关状态，写入 CSV 文件
+//bool batchUpdateFromUserInput(const string& path) {
+//    ofstream fout(path);
+//    if (!fout.is_open())
+//    {
+//        cout << "批量状态文件打开失败" << endl;
+//        return false;
+//    }
+//    cout << "请逐行输入 站点ID,状态 (0=关闭, 1=开放)，空行结束:\n";
+//    string line;
+//    int cnt = 0;
+//    while (getline(cin, line))
+//    {
+//        if (line == "")
+//        {
+//            break;
+//        }
+//        fout << line << endl;
+//        cnt++;
+//    }
+//    fout.close();
+//    return true;
+//}
 
 // 从CSV文件批量更新站点开关状态（格式：站点ID, 状态）
 bool batchUpdateStatus(const string& path)
@@ -75,6 +107,7 @@ bool batchUpdateStatus(const string& path)
         return false;
     }
     string line;
+    int cnt = 0;
     getline(fin, line);
     while (getline(fin, line))
     {
@@ -83,8 +116,11 @@ bool batchUpdateStatus(const string& path)
         int sid = stoi(parts[0]);
         int st = stoi(parts[1]);
         setStationOpen(sid, st == 1);
+        cnt++;
     }
     fin.close();
+
+    cout << "\n已更新 " << cnt << " 个站点\n";
     return true;
 }
 
@@ -110,4 +146,11 @@ bool saveStationStatus(const string& path)
     }
     fout.close();
     return true;
+}
+
+// 模糊匹配站点（根据关键词搜索站名，返回匹配站点的指针列表）
+vector<Station*> findStationsByKeyword(const string& keyword)
+{
+    // TODO: 实现模糊匹配逻辑
+    return {};
 }

@@ -18,10 +18,13 @@ struct Station
 
 extern vector<Station> allStations;
 
-bool loadStationCSV(const string& path);        // 从CSV加载站点数据
-bool restoreInitStation(const string& path);    // 恢复站点到初始状态
-bool setStationOpen(int sid, bool open);        // 设置单个站点开关状态
-bool batchUpdateStatus(const string& path);     // 从CSV批量更新站点状态
-bool saveStationStatus(const string& path);     // 保存当前站点状态到CSV
+bool loadStationCSV(const string& path);            // 从CSV加载站点数据
+bool restoreInitStation(const string& path);        // 恢复站点到初始状态
+bool batchUpdateStatus(const string& path);         // 从CSV批量更新站点状态
+bool saveStationStatus(const string& path);         // 保存当前站点状态到CSV
+
+bool setStationOpen(int sid, bool open);            // 设置单个站点开关状态
+//bool batchUpdateFromUserInput(const string& path);  // 设置多个站点开关状态，写入 CSV 文件
+vector<Station*> findStationsByKeyword(const string& keyword);  // 模糊匹配站点（根据关键词搜索站名，返回匹配站点的指针列表）
 
 #endif
