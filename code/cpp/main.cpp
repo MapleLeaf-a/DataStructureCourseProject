@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include "graph.h"
 #include "station.h"
+#include "menu.h"
 
 using namespace std;
 
