@@ -101,3 +101,18 @@ InitTestScene*.unity*
 .idea
 /Packages/packages-lock.json
 /ProjectSettings/ProjectVersion.txt
+
+# C++ / Visual Studio build outputs
+*.exe
+*.obj
+*.ilk
+*.idb
+*.tlog
+*.recipe
+*.wsuo
+*.sqlite
+*.vsidx
+*.lastbuildstate
+Browse.VC.db*
+**/x64/
+**/Win32/
