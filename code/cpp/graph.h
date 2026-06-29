@@ -1,6 +1,8 @@
 ﻿#ifndef GRAPH_H
 #define GRAPH_H
 
+#pragma execution_character_set("utf-8")
+
 #include <vector>
 #include <string>
 #include <unordered_map>

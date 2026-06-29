@@ -611,83 +611,75 @@ vector<Route> kMinTransferPaths(
 // ===== 显示函数 =====
 
 void showShortestTimePath(
-    const vector<vector<Edge>>& graph,
-    const vector<Station>& stations,
     const string& startName, const string& endName)
 {
-    auto nameMap = buildNameToIdMap(stations);
+    auto nameMap = buildNameToIdMap(allStations);
     auto itS = nameMap.find(startName);
     auto itE = nameMap.find(endName);
 
     if (itS == nameMap.end()) { cout << "未找到站点: " << startName << endl; return; }
     if (itE == nameMap.end()) { cout << "未找到站点: " << endName << endl; return; }
 
-    Route r = dijkstraShortestTime(graph, itS->second, itE->second, stations);
+    Route r = dijkstraShortestTime(graph, itS->second, itE->second, allStations);
     if (r.stationIds.empty())
         cout << "无可达路径" << endl;
     else
-        printRoute(r, stations);
+        printRoute(r, allStations);
 }
 
 void showKShortestTimePaths(
-    const vector<vector<Edge>>& graph,
-    const vector<Station>& stations,
     const string& startName, const string& endName,
     int k)
 {
-    auto nameMap = buildNameToIdMap(stations);
+    auto nameMap = buildNameToIdMap(allStations);
     auto itS = nameMap.find(startName);
     auto itE = nameMap.find(endName);
 
     if (itS == nameMap.end()) { cout << "未找到站点: " << startName << endl; return; }
     if (itE == nameMap.end()) { cout << "未找到站点: " << endName << endl; return; }
 
-    vector<Route> routes = kShortestTimePaths(graph, itS->second, itE->second, stations, k);
+    vector<Route> routes = kShortestTimePaths(graph, itS->second, itE->second, allStations, k);
 
     if (routes.empty())
         cout << "无可达路径" << endl;
     else
         for (int i = 0; i < (int)routes.size(); i++)
-            printRoute(routes[i], stations, i + 1);
+            printRoute(routes[i], allStations, i + 1);
 }
 
 void showMinTransferPath(
-    const vector<vector<Edge>>& graph,
-    const vector<Station>& stations,
     const string& startName, const string& endName)
 {
-    auto nameMap = buildNameToIdMap(stations);
+    auto nameMap = buildNameToIdMap(allStations);
     auto itS = nameMap.find(startName);
     auto itE = nameMap.find(endName);
 
     if (itS == nameMap.end()) { cout << "未找到站点: " << startName << endl; return; }
     if (itE == nameMap.end()) { cout << "未找到站点: " << endName << endl; return; }
 
-    Route r = dijkstraMinTransfer(graph, itS->second, itE->second, stations);
+    Route r = dijkstraMinTransfer(graph, itS->second, itE->second, allStations);
     if (r.stationIds.empty())
         cout << "无可达路径" << endl;
     else
-        printRoute(r, stations);
+        printRoute(r, allStations);
 }
 
 void showKMinTransferPaths(
-    const vector<vector<Edge>>& graph,
-    const vector<Station>& stations,
     const string& startName, const string& endName,
     int k)
 {
-    auto nameMap = buildNameToIdMap(stations);
+    auto nameMap = buildNameToIdMap(allStations);
     auto itS = nameMap.find(startName);
     auto itE = nameMap.find(endName);
 
     if (itS == nameMap.end()) { cout << "未找到站点: " << startName << endl; return; }
     if (itE == nameMap.end()) { cout << "未找到站点: " << endName << endl; return; }
 
-    vector<Route> routes = kMinTransferPaths(graph, itS->second, itE->second, stations, k);
+    vector<Route> routes = kMinTransferPaths(graph, itS->second, itE->second, allStations, k);
 
     if (routes.empty())
         cout << "无可达路径" << endl;
     else
         for (int i = 0; i < (int)routes.size(); i++)
-            printRoute(routes[i], stations, i + 1);
+            printRoute(routes[i], allStations, i + 1);
 }

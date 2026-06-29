@@ -165,7 +165,7 @@ vector<Station*> findStationsByKeyword(const string& keyword)
 // 返回 {站名, 站点ID, 是否运营}，取消/无匹配/无效编号时 name 为空
 tuple<string, int, bool> selectStationByKeyword(const string& prompt)
 {
-    cout << prompt << endl;
+    cout << prompt;
     string in;
     cin >> in;
     if (in == "exit") return { "", 0, false };
@@ -182,7 +182,7 @@ tuple<string, int, bool> selectStationByKeyword(const string& prompt)
         for (auto& lid : sta->lines)
             stas.push_back({ sta->name, lid, sta->isOpen, sta->id });
 
-    cout << "\n匹配的站点如下：\n";
+    cout << "匹配的站点如下：\n";
     int n = stas.size();
     for (int i = 0; i < n; i++)
         cout << i + 1 << ". " << get<0>(stas[i]) << "（" << get<1>(stas[i]) << "号线）" << endl;

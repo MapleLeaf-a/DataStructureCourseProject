@@ -85,7 +85,14 @@ void showStationSubMenu()
 		}
 		case 4:
 		{
-
+			if (restoreInitStation("data/Station_init.csv"))
+			{
+				cout << "\n全部站点状态已恢复至初始状态。\n";
+			}
+			else
+			{
+				cout << "\n全部站点状态初始化失败。\n";
+			}
 			break;
 		}
 		case 5:
@@ -133,10 +140,16 @@ void showTimePathSubMenu()
 		{
 		case 1:
 		{
+			string startName = get<0>(selectStationByKeyword("请输入起始站关键词："));
+			string endName = get<0>(selectStationByKeyword("请输入终点站关键词："));
+			showShortestTimePath(startName, endName);
 			break;
 		}
 		case 2:
 		{
+			string startName = get<0>(selectStationByKeyword("请输入起始站关键词："));
+			string endName = get<0>(selectStationByKeyword("请输入终点站关键词："));
+			showKShortestTimePaths(startName, endName, 3);
 			break;
 		}
 		case 3:
@@ -168,10 +181,16 @@ void showTransferPathSubMenu()
 		{
 		case 1:
 		{
+			string startName = get<0>(selectStationByKeyword("请输入起始站关键词："));
+			string endName = get<0>(selectStationByKeyword("请输入终点站关键词："));
+			showMinTransferPath(startName, endName);
 			break;
 		}
 		case 2:
 		{
+			string startName = get<0>(selectStationByKeyword("请输入起始站关键词："));
+			string endName = get<0>(selectStationByKeyword("请输入终点站关键词："));
+			showKMinTransferPaths(startName, endName, 3);
 			break;
 		}
 		case 3:
@@ -192,7 +211,7 @@ void showTransferPathSubMenu()
 // 手动设置站点开关状态（模糊搜索+选择+切换）
 void manualSetStationStatus() 
 {
-	auto [staName, sid, curOpen] = selectStationByKeyword("\n请输入待修改站点关键词（exit退出）：");
+	auto [staName, sid, curOpen] = selectStationByKeyword("请输入待修改站点关键词（exit退出）：");
 	if (staName.empty()) return;
 	cout << endl << staName << "，" << (curOpen ? "开启" : "关闭") << endl;
 
@@ -251,7 +270,7 @@ void showLineStations()
 // 显示受关闭站点影响的线路
 void showAffectedStations()
 {
-	auto [staName, sid, isOpen] = selectStationByKeyword("\n请输入站点关键词（exit退出）：");
+	auto [staName, sid, isOpen] = selectStationByKeyword("请输入站点关键词（exit退出）：");
 	if (staName.empty()) return;
 
 	if (isOpen)
@@ -268,12 +287,12 @@ void showAffectedStations()
 	else if (lineCnt == 2) level = "中";
 	else level = "低";
 
-	cout << "\n==== 站点【" << staName << "】关闭影响分析 ====\n";
-	cout << "影响等级：" << level << "（经过 " << lineCnt << " 条线路）\n\n";
+	cout << "\n===================================\n";
+	cout << "关闭站点：【" << staName << "】\n\n";
 
 	for (int lid : closedSta.lines)
 	{
-		cout << "--- " << lid << "号线 ---\n";
+		cout << lid << "号线：";
 
 		if (lineStations.count(lid))
 		{
@@ -286,14 +305,15 @@ void showAffectedStations()
 			string prevName = (pos > 0) ? allStations[line[pos - 1] - 1].name : "无";
 			string nextName = (pos < line.size() - 1) ? allStations[line[pos + 1] - 1].name : "无";
 
-			cout << "  " << prevName << " -> [" << staName << "(关闭)] -> " << nextName << endl;
+			cout << prevName << " -> [" << staName << "(关闭)] -> " << nextName << endl;
 		}
 		else
 		{
 			cout << "  （无法获取线路站点顺序信息）\n";
 		}
-		cout << endl;
 	}
+	cout << "\n影响等级：" << level << "（经过 " << lineCnt << " 条线路）";
+	cout << "\n===================================\n";
 }
 // 站点查询（模糊搜索+显示详情）
 void queryStation() 

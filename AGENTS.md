@@ -7,6 +7,7 @@
   g++ -std=c++20 code/cpp/main.cpp code/cpp/graph.cpp code/cpp/station.cpp code/cpp/menu.cpp code/cpp/pathfinder.cpp -o metro.exe
   ```
 - C++20 required. In VS: 项目属性 → C/C++ → 语言 → C++语言标准 → `ISO C++20 标准 (/std:c++20)`, 命令行附加 `/utf-8`。
+- `main.cpp` calls `SetConsoleOutputCP(CP_UTF8)` + `SetConsoleCP(CP_UTF8)` so I/O matches UTF-8 source/data encoding.
 - Run from repo root so `data/csv/` relative paths resolve.
 - Python: `python code/py/metro.py` (run from repo root). Requires `requests` (not stdlib).
 

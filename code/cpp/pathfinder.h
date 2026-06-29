@@ -69,24 +69,16 @@ vector<Route> kMinTransferPaths(
 // ===== 交互式查询显示函数 =====
 
 void showShortestTimePath(
-    const vector<vector<Edge>>& graph,
-    const vector<Station>& stations,
     const string& startName, const string& endName);
 
 void showKShortestTimePaths(
-    const vector<vector<Edge>>& graph,
-    const vector<Station>& stations,
     const string& startName, const string& endName,
     int k = 3);
 
 void showMinTransferPath(
-    const vector<vector<Edge>>& graph,
-    const vector<Station>& stations,
     const string& startName, const string& endName);
 
 void showKMinTransferPaths(
-    const vector<vector<Edge>>& graph,
-    const vector<Station>& stations,
     const string& startName, const string& endName,
     int k = 3);
 
