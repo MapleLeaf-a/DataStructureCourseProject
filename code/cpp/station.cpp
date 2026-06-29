@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <tuple>
 
 vector<Station> allStations; // 全局站点列表
 
@@ -151,6 +152,44 @@ bool saveStationStatus(const string& path)
 // 模糊匹配站点（根据关键词搜索站名，返回匹配站点的指针列表）
 vector<Station*> findStationsByKeyword(const string& keyword)
 {
-    // TODO: 实现模糊匹配逻辑
-    return {};
+    vector<Station*> result;
+    for (auto& sta : allStations)
+    {
+        if (sta.name.find(keyword) != string::npos)
+            result.push_back(&sta);
+    }
+    return result;
+}
+
+// 交互式选择站点（模糊搜索+展示+用户选择）
+// 返回 {站名, 站点ID, 是否运营}，取消/无匹配/无效编号时 name 为空
+tuple<string, int, bool> selectStationByKeyword(const string& prompt)
+{
+    cout << prompt << endl;
+    string in;
+    cin >> in;
+    if (in == "exit") return { "", 0, false };
+
+    vector<Station*> matches = findStationsByKeyword(in);
+    if (matches.empty())
+    {
+        cout << "\n未匹配到相关站点\n";
+        return { "", 0, false };
+    }
+
+    vector<tuple<string, int, bool, int>> stas;
+    for (auto* sta : matches)
+        for (auto& lid : sta->lines)
+            stas.push_back({ sta->name, lid, sta->isOpen, sta->id });
+
+    cout << "\n匹配的站点如下：\n";
+    int n = stas.size();
+    for (int i = 0; i < n; i++)
+        cout << i + 1 << ". " << get<0>(stas[i]) << "（" << get<1>(stas[i]) << "号线）" << endl;
+
+    cout << "请输入对应编号选择站点：";
+    int idx; cin >> idx;
+    if (idx < 1 || idx > n) { cout << "\n无效编号\n"; return { "", 0, false }; }
+
+    return { get<0>(stas[idx - 1]), get<3>(stas[idx - 1]), get<2>(stas[idx - 1]) };
 }

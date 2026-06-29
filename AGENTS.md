@@ -2,16 +2,17 @@
 
 ## Build & Run
 
-- **No build system** — compile manually. C++11+ required:
+- **No build system** — compile manually. C++20 required:
   ```
-  g++ -std=c++11 code/cpp/main.cpp code/cpp/graph.cpp code/cpp/station.cpp code/cpp/menu.cpp code/cpp/pathfinder.cpp -o metro.exe
+  g++ -std=c++20 code/cpp/main.cpp code/cpp/graph.cpp code/cpp/station.cpp code/cpp/menu.cpp code/cpp/pathfinder.cpp -o metro.exe
   ```
+- In Visual Studio: 项目属性 → C/C++ → 语言 → C++语言标准 → `ISO C++20 标准 (/std:c++20)`
 - Run from repo root so `data/csv/` relative paths resolve.
 - Python: `python code/py/metro.py` (run from repo root). Requires `requests` (not stdlib).
 
 ## Project state
 
-- `main()` only calls `runMenuLoop()`. CSV loaders (`loadStationCSV`, `loadEdgeCSV`) exist but are **not called from anywhere** — the app is a skeleton that runs the menu loop with empty switch stubs.
+- `main()` calls `loadStationCSV("data/csv/Station.csv")`, `loadEdgeCSV("data/csv/Edge.csv")`, `buildLineStations()`, then `runMenuLoop()`. CSV loaders are called — the app works end-to-end.
 - **`pathfinder.cpp`/`.h`** — fully implemented (~700 lines). Two Dijkstra variants: shortest-time (time first, transfers as tie-break via `time*10000+trans`) and min-transfer (transfers first via `trans*10000+time`). K-shortest uses A* with pruning: reverse Dijkstra precomputes heuristic `h[v]`, forward tree search with `f=g+h`, prunes branches where `f >= bound` (K-th best so far). Handles closed stations.
 - `main.cpp` defines two helper functions — `printAllStation()` and `printAdjTest()` — that are never called. Useful for debugging.
 - `update_station_status.csv` currently has no data rows (header only).
@@ -27,9 +28,9 @@
 
 - **Python (data pipeline):** `code/py/metro.py` — parses Shanghai Metro API JSON from `data/txt/metro*.txt` (20 lines: 1–18, 41, 51), writes `data/csv/Station.csv` and `data/csv/Edge.csv`. Line 4 uses "内圈"/"外圈" direction labels; all other lines use "往{station}" pattern.
 - **C++ (app):** Reads the two CSVs into `allStations` (global in `station.h`) and an adjacency-list graph, provides a console menu for route planning.
-- `graph.h/cpp` — Edge struct, `loadEdgeCSV()`, `splitStr()`.
-- `station.h/cpp` — Station struct (1-indexed IDs), global `allStations`, `loadStationCSV()`, `restoreInitStation()`, `setStationOpen()`, `batchUpdateStatus()`, `saveStationStatus()`.
-- `menu.h/cpp` — 4-option main menu + 3 sub-menus (station management: 8 items; time-based routing: 3 items; transfer-based routing: 3 items). All switch cases are empty stubs.
+- `graph.h/cpp` — Edge struct, global `graph` (adjacency list), global `lineStations` (line ID → ordered station IDs), `loadEdgeCSV()`, `splitStr()`, `buildLineStations()` (must be called after loading edges, before using `lineStations`).
+- `station.h/cpp` — Station struct (1-indexed IDs), global `allStations`, `loadStationCSV()`, `restoreInitStation()`, `setStationOpen()`, `batchUpdateStatus()`, `saveStationStatus()`, `findStationsByKeyword()` (fuzzy match → `vector<Station*>`), `selectStationByKeyword(prompt)` (full interactive picker → `tuple<name,id,open>`).
+- `menu.h/cpp` — 4-option main menu + 3 sub-menus with their own do-while loops (station: exit 8; time/transfer: exit 3). Station submenu cases 1-7 are implemented; time/transfer submenu cases are still empty stubs (but `pathfinder.h` functions are available to wire in).
 - `pathfinder.h/cpp` — Route struct (default ctor, `totalTime`, `transferCount`, `stationIds`, `transferSta`), Dijkstra algos, K-shortest variants, display wrappers. All station IDs are 1-indexed.
 
 ## Data files

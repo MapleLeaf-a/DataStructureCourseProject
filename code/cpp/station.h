@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <tuple>
 using namespace std;
 
 // 站点信息结构体
@@ -25,6 +26,7 @@ bool saveStationStatus(const string& path);         // 保存当前站点状态到CSV
 
 bool setStationOpen(int sid, bool open);            // 设置单个站点开关状态
 //bool batchUpdateFromUserInput(const string& path);  // 设置多个站点开关状态，写入 CSV 文件
-vector<Station*> findStationsByKeyword(const string& keyword);  // 模糊匹配站点（根据关键词搜索站名，返回匹配站点的指针列表）
+vector<Station*> findStationsByKeyword(const string& keyword);
+tuple<string, int, bool> selectStationByKeyword(const string& prompt);  // 模糊匹配站点（根据关键词搜索站名，返回匹配站点的指针列表）
 
 #endif
