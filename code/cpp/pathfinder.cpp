@@ -59,7 +59,6 @@ void printRoute(const Route& r, const vector<Station>& stations, int num) {
         else
             cout << "?" << sid;
 
-        // 显示从前一站到本站所属的线路名（第一个站不显示）
         if (i > 0) {
             int prevId = r.stationIds[i - 1];
             string lineName = "";
@@ -120,14 +119,12 @@ static Route dijkstraGeneral(const vector<vector<Edge>>& graph,
     int n = maxId + 1;
     if (startId < 1 || startId >= n || endId < 1 || endId >= n) return Route();
 
-    vector<int> dist1(n, INF);   // 主代价（时间或换乘）
-    vector<int> dist2(n, INF);   // 次要代价
+    vector<int> dist1(n, INF);
+    vector<int> dist2(n, INF);
     vector<int> prev(n, -1);
     vector<string> prevLine(n, "");
-    prevLine[startId] = initLine; // 根路径上下文：避免偏离节点处换乘漏计
+    prevLine[startId] = initLine;
 
-    // 优先队列：pair<主代价, pair<次要代价, 节点>>
-    // 使用 long long 编码避免溢出：主*BASE + 次
     const long long BASE = 1000000LL;
     priority_queue<pair<long long, int>, vector<pair<long long, int>>, greater<pair<long long, int>>> pq;
 
@@ -152,15 +149,14 @@ static Route dijkstraGeneral(const vector<vector<Edge>>& graph,
             if (blockedNodes.count(v)) continue;
             if (isStationClosed(stations, v, startId, endId)) continue;
 
-            // 计算换乘增量
             int addTrans = (prevLine[u] != "" && prevLine[u] != e.line_name) ? 1 : 0;
 
             long long nd1, nd2;
-            if (mode == 0) { // 时间优先
+            if (mode == 0) {
                 nd1 = dist1[u] + e.time;
                 nd2 = dist2[u] + addTrans;
             }
-            else { // 换乘优先
+            else {
                 nd1 = dist1[u] + addTrans;
                 nd2 = dist2[u] + e.time;
             }
@@ -187,7 +183,6 @@ static Route dijkstraGeneral(const vector<vector<Edge>>& graph,
         r.totalTime = dist2[endId];
     }
 
-    // 重建路径
     vector<int> path;
     for (int cur = endId; cur != -1; cur = prev[cur]) {
         path.push_back(cur);
@@ -197,7 +192,6 @@ static Route dijkstraGeneral(const vector<vector<Edge>>& graph,
     if (path.empty() || path[0] != startId) return Route();
     r.stationIds = path;
 
-    // 重建换乘站
     string lastLine = "";
     for (size_t i = 1; i < path.size(); ++i) {
         int node = path[i];
@@ -213,7 +207,7 @@ static Route dijkstraGeneral(const vector<vector<Edge>>& graph,
     return r;
 }
 
-// ===== 现有接口（单条路径） =====
+// ===== 单条路径接口 =====
 
 Route dijkstraShortestTime(const vector<vector<Edge>>& graph,
     int startId, int endId,
@@ -239,7 +233,6 @@ static vector<Route> yenKSP(const vector<vector<Edge>>& graph,
     // mode=0: 时间优先, mode=1: 换乘优先
     vector<Route> A;   // 结果路径
 
-    // 自定义比较函数，用于候选路径排序
     auto cmp = [mode](const Route& a, const Route& b) {
         if (mode == 0) {
             if (a.totalTime != b.totalTime) return a.totalTime < b.totalTime;
@@ -250,7 +243,6 @@ static vector<Route> yenKSP(const vector<vector<Edge>>& graph,
             return a.totalTime < b.totalTime;
         }
         };
-    // 使用 vector 手动排序管理候选路径（K 很小，set 开销不必要）
     vector<Route> candidates;
 
     // 1. 求第一条最短路径
@@ -304,30 +296,20 @@ static vector<Route> yenKSP(const vector<vector<Edge>>& graph,
                 blockedEdges, blockedNodes, mode, spurInitLine);
             if (spurPath.stationIds.empty()) continue;
 
-            // 组合成完整路径：rootPath + spurPath除去第一个节点
             Route totalPath;
             totalPath.stationIds = rootPath;
             totalPath.stationIds.insert(totalPath.stationIds.end(),
                 spurPath.stationIds.begin() + 1, spurPath.stationIds.end());
-            // 计算总时间和换乘
+
             totalPath.totalTime = 0;
             totalPath.transferCount = 0;
-            // 重新计算时间和换乘（利用原spurPath的信息叠加）
-            // 简单方式：通过遍历边重新计算
+            // 逐边重算合并路径的代价（spur Dijkstra 不包含根路径上下文，不可直接复用其 dist）
             if (totalPath.stationIds.size() >= 2) {
-                // 由于我们无法直接获取边的时间，需要从图中查找
-                // 这里用累积：已知rootPath的时间+spurPath的时间-重叠部分
-                // 但更简单：重新用dijkstra计算代价？但那样可能又不一样。
-                // 我们采用保守方法：直接用spurPath的总时间加上rootPath的额外时间，
-                // 但rootPath的时间未知。所以我们还是重新计算：
-                // 方法：从totalPath中逐段累加时间和换乘。
                 int totalTime = 0, totalTrans = 0;
                 string lastLine = "";
-                // 遍历每段边，查找graph中的边
                 for (size_t idx = 0; idx < totalPath.stationIds.size() - 1; ++idx) {
                     int u = totalPath.stationIds[idx];
                     int v = totalPath.stationIds[idx + 1];
-                    // 在graph中查找边（u->v）
                     bool found = false;
                     for (const Edge& e : graph[u]) {
                         if (e.to == v) {
@@ -339,7 +321,6 @@ static vector<Route> yenKSP(const vector<vector<Edge>>& graph,
                         }
                     }
                     if (!found) {
-                        // 理论上不会发生
                         totalTime = INF;
                         break;
                     }
@@ -347,7 +328,7 @@ static vector<Route> yenKSP(const vector<vector<Edge>>& graph,
                 if (totalTime >= INF) continue;
                 totalPath.totalTime = totalTime;
                 totalPath.transferCount = totalTrans;
-                // 重新计算换乘站
+
                 totalPath.transferSta.clear();
                 lastLine = "";
                 for (size_t idx = 0; idx < totalPath.stationIds.size() - 1; ++idx) {
@@ -367,7 +348,6 @@ static vector<Route> yenKSP(const vector<vector<Edge>>& graph,
                 }
             }
 
-            // 检查是否已经存在于A或候选列表中
             bool exist = false;
             for (const Route& r : A) if (isSameRoute(r, totalPath)) { exist = true; break; }
             if (!exist) {
@@ -380,9 +360,7 @@ static vector<Route> yenKSP(const vector<vector<Edge>>& graph,
 
         if (candidates.empty()) break;
 
-        // 按代价排序
         sort(candidates.begin(), candidates.end(), cmp);
-        // 选出代价最小的加入A
         A.push_back(candidates.front());
         candidates.erase(candidates.begin());
     }
@@ -390,7 +368,7 @@ static vector<Route> yenKSP(const vector<vector<Edge>>& graph,
     return A;
 }
 
-// ===== 对外接口 =====
+
 
 vector<Route> kShortestTimePaths(const vector<vector<Edge>>& graph,
     int startId, int endId,
