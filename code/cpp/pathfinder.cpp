@@ -59,6 +59,22 @@ void printRoute(const Route& r, const vector<Station>& stations, int num) {
             cout << stations[sid - 1].name;
         else
             cout << "?" << sid;
+
+        // 显示从前一站到本站所属的线路名（第一个站不显示）
+        if (i > 0) {
+            int prevId = r.stationIds[i - 1];
+            string lineName = "";
+            if (prevId >= 1 && prevId < (int)graph.size()) {
+                for (const Edge& e : graph[prevId]) {
+                    if (e.to == sid) {
+                        lineName = e.line_name;
+                        break;
+                    }
+                }
+            }
+            if (!lineName.empty())
+                cout << "(" << lineName << ")";
+        }
     }
     cout << endl;
 }
