@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <queue>
 #include <set>
-#include <map>
 #include <climits>
 using namespace std;
 
@@ -105,43 +104,6 @@ static int getMaxStationId(const vector<vector<Edge>>& graph) {
     return maxId;
 }
 
-// ===== 构建路径（从prev数组） =====
-
-static Route buildRouteFromPrev(int startId, int endId,
-    const vector<int>& prev,
-    const vector<string>& prevLine,
-    const vector<int>& distTime,
-    const vector<int>& distTrans,
-    const vector<Station>& stations) {
-    Route r;
-    r.totalTime = distTime[endId];
-    r.transferCount = distTrans[endId];
-
-    vector<int> path;
-    for (int cur = endId; cur != -1; cur = prev[cur]) {
-        path.push_back(cur);
-        if (cur == startId) break;
-    }
-    reverse(path.begin(), path.end());
-    if (path.empty() || path[0] != startId) return Route();
-    r.stationIds = path;
-
-    // 重建换乘站
-    string lastLine = "";
-    for (size_t i = 1; i < path.size(); ++i) {
-        int node = path[i];
-        if (node < 0 || node >= (int)prevLine.size()) continue;
-        string curLine = prevLine[node];
-        int prevStaIdx = path[i - 1] - 1;
-        if (lastLine != "" && curLine != "" && curLine != lastLine
-            && prevStaIdx >= 0 && prevStaIdx < (int)stations.size()) {
-            r.transferSta.push_back(stations[prevStaIdx].name);
-        }
-        if (curLine != "") lastLine = curLine;
-    }
-    return r;
-}
-
 // ===== 通用 Dijkstra（支持禁止边和禁止节点） =====
 
 // 两种模式：
@@ -152,7 +114,8 @@ static Route dijkstraGeneral(const vector<vector<Edge>>& graph,
     const vector<Station>& stations,
     const set<pair<int, int>>& blockedEdges,
     const set<int>& blockedNodes,
-    int mode) {
+    int mode,
+    const string& initLine = "") {
     int maxId = getMaxStationId(graph);
     int n = maxId + 1;
     if (startId < 1 || startId >= n || endId < 1 || endId >= n) return Route();
@@ -161,6 +124,7 @@ static Route dijkstraGeneral(const vector<vector<Edge>>& graph,
     vector<int> dist2(n, INF);   // 次要代价
     vector<int> prev(n, -1);
     vector<string> prevLine(n, "");
+    prevLine[startId] = initLine; // 根路径上下文：避免偏离节点处换乘漏计
 
     // 优先队列：pair<主代价, pair<次要代价, 节点>>
     // 使用 long long 编码避免溢出：主*BASE + 次
@@ -274,9 +238,8 @@ static vector<Route> yenKSP(const vector<vector<Edge>>& graph,
     int mode) {
     // mode=0: 时间优先, mode=1: 换乘优先
     vector<Route> A;   // 结果路径
-    set<Route> B;      // 候选路径（用set自动排序，需定义operator<）
 
-    // 自定义比较函数，用于set排序
+    // 自定义比较函数，用于候选路径排序
     auto cmp = [mode](const Route& a, const Route& b) {
         if (mode == 0) {
             if (a.totalTime != b.totalTime) return a.totalTime < b.totalTime;
@@ -287,8 +250,7 @@ static vector<Route> yenKSP(const vector<vector<Edge>>& graph,
             return a.totalTime < b.totalTime;
         }
         };
-    // 使用set，但需提供比较器，由于Route没有默认<，我们使用自定义函数对象
-    // 这里用vector+手动排序更简单，因为K很小
+    // 使用 vector 手动排序管理候选路径（K 很小，set 开销不必要）
     vector<Route> candidates;
 
     // 1. 求第一条最短路径
@@ -309,6 +271,15 @@ static vector<Route> yenKSP(const vector<vector<Edge>>& graph,
             vector<int> rootPath;
             for (int j = 0; j <= i; ++j) rootPath.push_back(prevPath.stationIds[j]);
 
+            // 获取根路径最后一段的线路名，作为偏离点Dijkstra的初始线路上下文
+            string spurInitLine = "";
+            if (rootPath.size() >= 2) {
+                int ru = rootPath[rootPath.size() - 2];
+                int rv = rootPath[rootPath.size() - 1];
+                for (const Edge& e : graph[ru])
+                    if (e.to == rv) { spurInitLine = e.line_name; break; }
+            }
+
             // 禁止边集合：从A中所有路径中，具有相同根路径的边
             set<pair<int, int>> blockedEdges;
             for (const Route& r : A) {
@@ -328,9 +299,9 @@ static vector<Route> yenKSP(const vector<vector<Edge>>& graph,
             set<int> blockedNodes;
             for (int j = 0; j < i; ++j) blockedNodes.insert(prevPath.stationIds[j]);
 
-            // 计算从spurNode到终点的最短路径（避开禁止边和节点）
+            // 计算从spurNode到终点的最短路径（避开禁止边和节点，传入根路径线路上下文）
             Route spurPath = dijkstraGeneral(graph, spurNode, endId, stations,
-                blockedEdges, blockedNodes, mode);
+                blockedEdges, blockedNodes, mode, spurInitLine);
             if (spurPath.stationIds.empty()) continue;
 
             // 组合成完整路径：rootPath + spurPath除去第一个节点

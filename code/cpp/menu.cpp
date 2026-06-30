@@ -34,6 +34,7 @@ void pauseAndReturn()
 {
 	cout << "\n按回车键继续...";
 	cin.ignore(numeric_limits<streamsize>::max(), '\n');
+	cin.get();
 }
 
 //主菜单
@@ -106,7 +107,6 @@ void showStationSubMenu()
 		{
 			cout << "您确定要恢复所有站点的初始状态?（Y/N）：";
 			char confirm; cin >> confirm;
-			cin.ignore(numeric_limits<streamsize>::max(), '\n'); // 清掉换行符
 			if (confirm == 'Y' || confirm == 'y')
 			{
 				if (restoreInitStation("data/csv/Station_init.csv"))
