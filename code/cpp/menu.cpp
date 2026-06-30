@@ -320,43 +320,47 @@ void showLineStations()
 
 	vector<int> line = lineStations[lineID];
 
-	cout << "\n==== " << lineID << " 号线 站点信息 ====\n";
-	int n = line.size();
+	cout << "\n========= " << lineID << " 号线 站点信息 =========\n";
+	int n = line.size(); 
 	cout << "共 " << n << " 个站点\n\n";
 
-	// 计算最大站名长度用于对齐
-	int maxLen = 0;
-	for (int i = 0; i < n; i++) {
-		int len = allStations[line[i] - 1].name.size();
-		if (len > maxLen) maxLen = len;
-	}
-
+	// 第一遍：计算最大显示列宽（中文=2列，ASCII=1列）
+	int maxDisp = 0;
 	for (int i = 0; i < n; i++)
 	{
-		Station& sta = allStations[line[i] - 1];
-		string name = sta.name;
-		string status = (sta.isOpen ? "开放" : "关闭");
-
-		cout << setw(2) << right << (i + 1) << ". "
-			<< setw(maxLen) << left << name << "    " << status;
-
-		// 显示换乘信息（该站点所属的其他线路）
-		if (sta.lines.size() > 1)
+		string& nm = allStations[line[i] - 1].name;
+		int w = 0;
+		for (size_t j = 0; j < nm.size(); )
 		{
-			cout << "    换乘：";
-			bool first = true;
-			for (int lid : sta.lines)
-			{
-				if (lid != lineID)
-				{
-					if (!first) cout << "、";
-					cout << lid << "号线";
-					first = false;
-				}
-			}
+			unsigned char c = nm[j];
+			if (c < 0x80)           { w += 1; j += 1; }
+			else if ((c >> 5) == 6) { w += 1; j += 2; }  // Latin 扩展（如 ·），1列
+			else                    { w += 2; j += 3; }  // CJK 汉字，2列
 		}
-		cout << endl;
+		if (w > maxDisp) maxDisp = w;
 	}
+
+	// 第二遍：输出并对齐
+	for (int i = 0; i < n; i++)
+	{
+		string name = allStations[line[i] - 1].name;
+		string status = (allStations[line[i] - 1].isOpen ? "开放" : "关闭");
+
+		// 计算当前站名显示列宽
+		int curDisp = 0;
+		for (size_t j = 0; j < name.size(); )
+		{
+			unsigned char c = name[j];
+			if (c < 0x80)           { curDisp += 1; j += 1; }
+			else if ((c >> 5) == 6) { curDisp += 2; j += 2; }
+			else                    { curDisp += 2; j += 3; }
+		}
+
+		cout << setw(3) << right << (i + 1) << ". " << name << left;
+		for (int p = curDisp; p < maxDisp; p++) cout << ' ';
+		cout << "    " << status << endl;
+	}
+
 }
 // 显示受关闭站点影响的线路
 void showAffectedStations()

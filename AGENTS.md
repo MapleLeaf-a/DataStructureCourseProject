@@ -15,7 +15,6 @@
 
 - `main()` calls `loadStationCSV("data/csv/Station.csv")`, `loadEdgeCSV("data/csv/Edge.csv")`, `buildLineStations()`, then `runMenuLoop()`. CSV loaders are called — the app works end-to-end.
 - **`pathfinder.cpp`/`.h`** — fully implemented (~700 lines). Two Dijkstra variants: shortest-time (time first, transfers as tie-break via `time*10000+trans`) and min-transfer (transfers first via `trans*10000+time`). K-shortest uses A* with pruning: reverse Dijkstra precomputes heuristic `h[v]`, forward tree search with `f=g+h`, prunes branches where `f >= bound` (K-th best so far). Handles closed stations.
-- `main.cpp` defines two helper functions — `printAllStation()` and `printAdjTest()` — that are never called. Useful for debugging.
 - `update_station_status.csv` currently has no data rows (header only).
 - `Station.csv` and `Station_init.csv` currently have identical content (416 stations). `Station_backup.csv` has 525 stations and is not referenced in any code.
 
