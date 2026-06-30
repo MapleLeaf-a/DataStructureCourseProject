@@ -116,3 +116,6 @@ InitTestScene*.unity*
 Browse.VC.db*
 **/x64/
 **/Win32/
+
+# VS Code workspace settings
+.vscode/
