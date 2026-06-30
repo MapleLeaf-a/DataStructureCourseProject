@@ -4,6 +4,7 @@
 #include <fstream>
 #include <algorithm>
 #include <tuple>
+#include <limits>
 
 vector<Station> allStations; // 全局站点列表
 
@@ -109,19 +110,54 @@ bool batchUpdateStatus(const string& path)
     }
     string line;
     int cnt = 0;
-    getline(fin, line);
+    int skipCnt = 0;
+    getline(fin, line);  // 跳过标题行
+    if (fin.eof() || fin.peek() == EOF)
+    {
+        cout << "\n未检测到有效更新记录。" << endl;
+        return false;
+    }
     while (getline(fin, line))
     {
+        if (line.empty()) continue;
         vector<string> parts = splitStr(line, ',');
-        if (parts.size() != 2) continue;
-        int sid = stoi(parts[0]);
-        int st = stoi(parts[1]);
-        setStationOpen(sid, st == 1);
-        cnt++;
+        if (parts.size() != 2)
+        {
+            cout << "格式错误，跳过该行: " << line << endl;
+            skipCnt++;
+            continue;
+        }
+        int sid, st;
+        try { sid = stoi(parts[0]); }
+        catch (...) {
+            cout << "无效站点ID，跳过该行: " << line << endl;
+            skipCnt++;
+            continue;
+        }
+        try { st = stoi(parts[1]); }
+        catch (...) {
+            cout << "无效状态值，跳过该行: " << line << endl;
+            skipCnt++;
+            continue;
+        }
+        if (st != 0 && st != 1)
+        {
+            cout << "非法状态值（须为0或1），跳过该行: " << line << endl;
+            skipCnt++;
+            continue;
+        }
+        if (!setStationOpen(sid, st == 1))
+        {
+            cout << "未匹配到对应站点 ID=" << sid << "，跳过" << endl;
+            skipCnt++;
+        }
+        else cnt++;
     }
     fin.close();
 
-    cout << "\n已更新 " << cnt << " 个站点\n";
+    cout << "\n已更新 " << cnt << " 个站点";
+    if (skipCnt > 0) cout << "，跳过 " << skipCnt << " 行";
+    cout << endl;
     return true;
 }
 
@@ -168,6 +204,7 @@ tuple<string, int, bool> selectStationByKeyword(const string& prompt)
     cout << prompt;
     string in;
     cin >> in;
+    if (cin.fail()) { cin.clear(); cin.ignore(numeric_limits<streamsize>::max(), '\n'); return { "", 0, false }; }
     if (in == "exit") return { "", 0, false };
 
     vector<Station*> matches = findStationsByKeyword(in);
@@ -189,6 +226,7 @@ tuple<string, int, bool> selectStationByKeyword(const string& prompt)
 
     cout << "请输入对应编号选择站点：";
     int idx; cin >> idx;
+    if (cin.fail()) { cin.clear(); cin.ignore(numeric_limits<streamsize>::max(), '\n'); cout << "\n无效编号\n"; return { "", 0, false }; }
     if (idx < 1 || idx > n) { cout << "\n无效编号\n"; return { "", 0, false }; }
 
     return { get<0>(stas[idx - 1]), get<3>(stas[idx - 1]), get<2>(stas[idx - 1]) };
