@@ -321,7 +321,8 @@ void showLineStations()
 	vector<int> line = lineStations[lineID];
 
 	cout << "\n========= " << lineID << " 号线 站点信息 =========\n";
-	int n = line.size();
+	int n = line.size(); 
+	cout << "共 " << n << " 个站点\n\n";
 
 	// 第一遍：计算最大显示列宽（中文=2列，ASCII=1列）
 	int maxDisp = 0;
@@ -359,6 +360,7 @@ void showLineStations()
 		for (int p = curDisp; p < maxDisp; p++) cout << ' ';
 		cout << "    " << status << endl;
 	}
+
 }
 // 显示受关闭站点影响的线路
 void showAffectedStations()
