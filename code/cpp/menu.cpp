@@ -415,5 +415,19 @@ void queryStation()
 {
 	auto [staName, sid, isOpen] = selectStationByKeyword("请输入站点关键词（exit退出）：");
 	if (staName.empty()) return;
-	cout << endl << staName << "，" << (isOpen ? "开启" : "关闭") << endl;
+
+	Station& sta = allStations[sid - 1];
+	int lineCnt = (int)sta.lines.size();
+
+	cout << "\n===================================\n";
+	cout << "站点名称：" << staName << "\n";
+	cout << "站点 ID ：" << sid << "\n";
+	cout << "运营状态：" << (isOpen ? "运营中" : "已关闭") << "\n";
+	cout << "所属线路：";
+	for (int i = 0; i < lineCnt; i++)
+	{
+		if (i) cout << "，";
+		cout << sta.lines[i] << "号线";
+	}
+	cout << "\n===================================\n";
 }
