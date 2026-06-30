@@ -2,76 +2,58 @@
 #include <iostream>
 #include <algorithm>
 #include <queue>
+#include <set>
+#include <map>
+#include <climits>
 using namespace std;
 
-const int INF = 0x3f3f3f3f;
-const int COST_BASE = 10000;   // 编码基数，用于将换乘次数编码到优先队列键值中
+const int INF = INT_MAX / 2;
 
 // ===== 工具函数 =====
 
-bool isSameRoute(const Route& r1, const Route& r2)
-{
-    if (r1.stationIds.size() != r2.stationIds.size())
-        return false;
-    for (size_t i = 0; i < r1.stationIds.size(); i++)
-        if (r1.stationIds[i] != r2.stationIds[i])
-            return false;
+bool isSameRoute(const Route& a, const Route& b) {
+    if (a.stationIds.size() != b.stationIds.size()) return false;
+    for (size_t i = 0; i < a.stationIds.size(); ++i)
+        if (a.stationIds[i] != b.stationIds[i]) return false;
     return true;
 }
 
-void removeSameRoutes(vector<Route>& routes)
-{
+void removeSameRoutes(vector<Route>& routes) {
     vector<Route> uniq;
-    for (const auto& r : routes)
-    {
+    for (auto& r : routes) {
         bool dup = false;
-        for (const auto& u : uniq)
-        {
-            if (isSameRoute(r, u)) { dup = true; break; }
-        }
+        for (auto& u : uniq) if (isSameRoute(r, u)) { dup = true; break; }
         if (!dup) uniq.push_back(r);
     }
     routes = uniq;
 }
 
-bool sortByTime(const Route& a, const Route& b)
-{
-    if (a.totalTime != b.totalTime)
-        return a.totalTime < b.totalTime;
+bool sortByTime(const Route& a, const Route& b) {
+    if (a.totalTime != b.totalTime) return a.totalTime < b.totalTime;
     return a.transferCount < b.transferCount;
 }
 
-bool sortByTransfer(const Route& a, const Route& b)
-{
-    if (a.transferCount != b.transferCount)
-        return a.transferCount < b.transferCount;
+bool sortByTransfer(const Route& a, const Route& b) {
+    if (a.transferCount != b.transferCount) return a.transferCount < b.transferCount;
     return a.totalTime < b.totalTime;
 }
 
-void printRoute(const Route& r, const vector<Station>& stations, int num)
-{
+void printRoute(const Route& r, const vector<Station>& stations, int num) {
     if (r.stationIds.empty()) return;
-
-    if (num > 0)
-        cout << "\n第 " << num << " 条路线" << endl;
+    if (num > 0) cout << "\n第 " << num << " 条路线" << endl;
     cout << "总耗时：" << r.totalTime << " 分钟" << endl;
     cout << "换乘次数：" << r.transferCount << endl;
-
-    if (!r.transferSta.empty())
-    {
+    if (!r.transferSta.empty()) {
         cout << "换乘站点：";
-        for (size_t i = 0; i < r.transferSta.size(); i++)
-        {
-            if (i > 0) cout << ", ";
+        for (size_t i = 0; i < r.transferSta.size(); ++i) {
+            if (i) cout << ", ";
             cout << r.transferSta[i];
         }
         cout << endl;
     }
-
     cout << "具体路线：";
-    for (size_t i = 0; i < r.stationIds.size(); i++)
-    {
-        if (i > 0) cout << " -> ";
+    for (size_t i = 0; i < r.stationIds.size(); ++i) {
+        if (i) cout << " -> ";
         int sid = r.stationIds[i];
         if (sid >= 1 && sid - 1 < (int)stations.size())
             cout << stations[sid - 1].name;
@@ -81,605 +63,396 @@ void printRoute(const Route& r, const vector<Station>& stations, int num)
     cout << endl;
 }
 
-// 建立站名->站点ID索引表
-unordered_map<string, int> buildNameToIdMap(const vector<Station>& stations)
-{
+unordered_map<string, int> buildNameToIdMap(const vector<Station>& stations) {
     unordered_map<string, int> m;
-    for (const auto& s : stations)
-        m[s.name] = s.id;
+    for (auto& s : stations) m[s.name] = s.id;
     return m;
 }
 
 // ===== 站点状态判断 =====
 
-static bool isStationClosed(const vector<Station>& stations, int sid, int startId, int endId)
-{
+static bool isStationClosed(const vector<Station>& stations, int sid, int startId, int endId) {
     if (sid == startId || sid == endId) return false;
     int idx = sid - 1;
     if (idx < 0 || idx >= (int)stations.size()) return true;
     return !stations[idx].isOpen;
 }
 
-// ===== 构建反向图（用于启发式函数） =====
+// ===== 计算图中最大站点ID =====
 
-static vector<vector<Edge>> buildReverseGraph(const vector<vector<Edge>>& graph)
-{
-    int n = (int)graph.size();
-    vector<vector<Edge>> rev(n);
-    for (int u = 1; u < n; u++)
-    {
+static int getMaxStationId(const vector<vector<Edge>>& graph) {
+    if (graph.empty()) return 0;
+    int maxId = (int)graph.size() - 1;
+    for (size_t u = 1; u < graph.size(); ++u)
         for (const Edge& e : graph[u])
-        {
-            rev[e.to].push_back({ u, e.time, e.line_name, e.direction });
-        }
-    }
-    return rev;
+            if (e.to > maxId) maxId = e.to;
+    return maxId;
 }
 
-// ===== 启发式函数：反向Dijkstra计算h值 =====
+// ===== 构建路径（从prev数组） =====
 
-// 时间启发式：hTime[node] = 从node到终点的最短时间
-static vector<int> computeTimeHeuristic(const vector<vector<Edge>>& graph, int endId,
-                                         const vector<Station>& stations)
-{
-    int n = (int)graph.size();
-    vector<vector<Edge>> rev = buildReverseGraph(graph);
-    vector<int> dist(n, INF);
-    vector<bool> visited(n, false);
-    priority_queue<pair<int, int>> pq;  // (-dist, node)
-
-    dist[endId] = 0;
-    pq.push({ 0, endId });
-
-    while (!pq.empty())
-    {
-        int d = -pq.top().first;
-        int u = pq.top().second;
-        pq.pop();
-
-        if (visited[u]) continue;
-        visited[u] = true;
-
-        for (const Edge& e : rev[u])
-        {
-            int v = e.to;
-            if (v < 1 || v >= n) continue;
-            if (visited[v]) continue;
-            if (!stations[v - 1].isOpen && v != endId) continue;
-
-            int nd = d + e.time;
-            if (nd < dist[v])
-            {
-                dist[v] = nd;
-                pq.push({ -nd, v });
-            }
-        }
-    }
-    return dist;
-}
-
-// 编码启发式：hEnc[node] = 从node到终点的最小(换乘*COST_BASE + 时间)
-static vector<int> computeEncodedHeuristic(const vector<vector<Edge>>& graph, int endId,
-                                            const vector<Station>& stations)
-{
-    int n = (int)graph.size();
-    vector<vector<Edge>> rev = buildReverseGraph(graph);
-    vector<int> bestTrans(n, INF);
-    vector<int> bestTime(n, INF);
-    vector<string> prevLine(n, "");
-
-    bestTrans[endId] = 0;
-    bestTime[endId] = 0;
-
-    priority_queue<pair<int, int>> pq;
-    pq.push({ 0, endId });
-
-    while (!pq.empty())
-    {
-        int encoded = -pq.top().first;
-        int u = pq.top().second;
-        pq.pop();
-
-        int curTrans = encoded / COST_BASE;
-        int curTime = encoded % COST_BASE;
-
-        if (curTrans > bestTrans[u]) continue;
-        if (curTrans == bestTrans[u] && curTime > bestTime[u]) continue;
-
-        for (const Edge& e : rev[u])
-        {
-            int v = e.to;
-            if (v < 1 || v >= n) continue;
-            if (!stations[v - 1].isOpen && v != endId) continue;
-
-            int addTrans = (prevLine[u] != "" && prevLine[u] != e.line_name) ? 1 : 0;
-            int newTrans = curTrans + addTrans;
-            int newTime = curTime + e.time;
-
-            int newEncoded = newTrans * COST_BASE + newTime;
-            int oldEncoded = bestTrans[v] * COST_BASE + bestTime[v];
-
-            if (newTrans < bestTrans[v] ||
-                (newTrans == bestTrans[v] && newTime < bestTime[v]))
-            {
-                bestTrans[v] = newTrans;
-                bestTime[v] = newTime;
-                prevLine[v] = e.line_name;
-                pq.push({ -newEncoded, v });
-            }
-        }
-    }
-
-    vector<int> hEncoded(n, INF);
-    for (int i = 1; i < n; i++)
-    {
-        if (bestTime[i] != INF)
-            hEncoded[i] = bestTrans[i] * COST_BASE + bestTime[i];
-    }
-    return hEncoded;
-}
-
-// ===== 核心寻路算法 =====
-
-// 根据prev和prevLine数组重建路径并统计换乘
-static Route buildRoute(int startId, int endId,
-                        const vector<int>& prev, const vector<string>& prevLine,
-                        int totalTime, const vector<Station>& stations)
-{
+static Route buildRouteFromPrev(int startId, int endId,
+    const vector<int>& prev,
+    const vector<string>& prevLine,
+    const vector<int>& distTime,
+    const vector<int>& distTrans,
+    const vector<Station>& stations) {
     Route r;
-    r.totalTime = totalTime;
+    r.totalTime = distTime[endId];
+    r.transferCount = distTrans[endId];
 
     vector<int> path;
-    for (int cur = endId; cur != -1; cur = prev[cur])
+    for (int cur = endId; cur != -1; cur = prev[cur]) {
         path.push_back(cur);
+        if (cur == startId) break;
+    }
     reverse(path.begin(), path.end());
-
-    if (path.empty() || path[0] != startId) return r;  // 不可达
-
+    if (path.empty() || path[0] != startId) return Route();
     r.stationIds = path;
 
-    // 换乘统计
+    // 重建换乘站
     string lastLine = "";
-    for (size_t i = 1; i < path.size(); i++)
-    {
+    for (size_t i = 1; i < path.size(); ++i) {
         int node = path[i];
         if (node < 0 || node >= (int)prevLine.size()) continue;
         string curLine = prevLine[node];
-        if (lastLine != "" && curLine != lastLine && path[i - 1] >= 1 && path[i - 1] - 1 < (int)stations.size())
-        {
-            r.transferCount++;
-            r.transferSta.push_back(stations[path[i - 1] - 1].name);
+        int prevStaIdx = path[i - 1] - 1;
+        if (lastLine != "" && curLine != "" && curLine != lastLine
+            && prevStaIdx >= 0 && prevStaIdx < (int)stations.size()) {
+            r.transferSta.push_back(stations[prevStaIdx].name);
         }
-        lastLine = curLine;
+        if (curLine != "") lastLine = curLine;
     }
-
     return r;
 }
 
-// Dijkstra 最短时间寻路（时间优先，时间相同时换乘少者优先）
-Route dijkstraShortestTime(
-    const vector<vector<Edge>>& graph,
+// ===== 通用 Dijkstra（支持禁止边和禁止节点） =====
+
+// 两种模式：
+// mode = 0: 时间优先 (time, trans)
+// mode = 1: 换乘优先 (trans, time)
+static Route dijkstraGeneral(const vector<vector<Edge>>& graph,
     int startId, int endId,
     const vector<Station>& stations,
-    const set<pair<int, int>>& blockedEdges)
-{
-    int n = (int)graph.size();
-    vector<int> bestTime(n, INF);
-    vector<int> bestTrans(n, INF);
+    const set<pair<int, int>>& blockedEdges,
+    const set<int>& blockedNodes,
+    int mode) {
+    int maxId = getMaxStationId(graph);
+    int n = maxId + 1;
+    if (startId < 1 || startId >= n || endId < 1 || endId >= n) return Route();
+
+    vector<int> dist1(n, INF);   // 主代价（时间或换乘）
+    vector<int> dist2(n, INF);   // 次要代价
     vector<int> prev(n, -1);
     vector<string> prevLine(n, "");
 
-    if (startId < 1 || startId >= n || endId < 1 || endId >= n)
-        return Route();
+    // 优先队列：pair<主代价, pair<次要代价, 节点>>
+    // 使用 long long 编码避免溢出：主*BASE + 次
+    const long long BASE = 1000000LL;
+    priority_queue<pair<long long, int>, vector<pair<long long, int>>, greater<pair<long long, int>>> pq;
 
-    bestTime[startId] = 0;
-    bestTrans[startId] = 0;
-
-    // key = -(time * COST_BASE + trans)，取负使pq为小顶堆
-    priority_queue<pair<int, int>> pq;
+    dist1[startId] = 0;
+    dist2[startId] = 0;
     pq.push({ 0, startId });
 
-    while (!pq.empty())
-    {
-        int encoded = -pq.top().first;
-        int u = pq.top().second;
-        pq.pop();
-
-        int curTime = encoded / COST_BASE;
-        int curTrans = encoded % COST_BASE;
-
-        if (curTime > bestTime[u]) continue;
-        if (curTime == bestTime[u] && curTrans > bestTrans[u]) continue;
-
+    while (!pq.empty()) {
+        auto [code, u] = pq.top(); pq.pop();
+        long long d1 = code / BASE;
+        long long d2 = code % BASE;
+        if (d1 > dist1[u] || (d1 == dist1[u] && d2 > dist2[u])) continue;
         if (u == endId) break;
 
+        if (blockedNodes.count(u)) continue;
         if (isStationClosed(stations, u, startId, endId)) continue;
 
-        for (const Edge& e : graph[u])
-        {
+        for (const Edge& e : graph[u]) {
             int v = e.to;
             if (v < 1 || v >= n) continue;
-            if (isStationClosed(stations, v, startId, endId)) continue;
             if (blockedEdges.count({ u, v })) continue;
+            if (blockedNodes.count(v)) continue;
+            if (isStationClosed(stations, v, startId, endId)) continue;
 
-            int newTime = curTime + e.time;
+            // 计算换乘增量
             int addTrans = (prevLine[u] != "" && prevLine[u] != e.line_name) ? 1 : 0;
-            int newTrans = curTrans + addTrans;
 
-            if (newTime < bestTime[v] ||
-                (newTime == bestTime[v] && newTrans < bestTrans[v]))
-            {
-                bestTime[v] = newTime;
-                bestTrans[v] = newTrans;
+            long long nd1, nd2;
+            if (mode == 0) { // 时间优先
+                nd1 = dist1[u] + e.time;
+                nd2 = dist2[u] + addTrans;
+            }
+            else { // 换乘优先
+                nd1 = dist1[u] + addTrans;
+                nd2 = dist2[u] + e.time;
+            }
+
+            if (nd1 < dist1[v] || (nd1 == dist1[v] && nd2 < dist2[v])) {
+                dist1[v] = nd1;
+                dist2[v] = nd2;
                 prev[v] = u;
                 prevLine[v] = e.line_name;
-                pq.push({ -(newTime * COST_BASE + newTrans), v });
+                pq.push({ nd1 * BASE + nd2, v });
             }
         }
     }
 
-    if (bestTime[endId] == INF) return Route();
-    Route r = buildRoute(startId, endId, prev, prevLine, bestTime[endId], stations);
-    r.transferCount = bestTrans[endId];
-    return r;
-}
+    if (dist1[endId] == INF) return Route();
 
-// Dijkstra 最少换乘寻路（换乘优先，换乘相同时时间少者优先）
-Route dijkstraMinTransfer(
-    const vector<vector<Edge>>& graph,
-    int startId, int endId,
-    const vector<Station>& stations,
-    const set<pair<int, int>>& blockedEdges)
-{
-    int n = (int)graph.size();
-    vector<int> bestTrans(n, INF);
-    vector<int> bestTime(n, INF);
-    vector<int> prev(n, -1);
-    vector<string> prevLine(n, "");
-
-    if (startId < 1 || startId >= n || endId < 1 || endId >= n)
-        return Route();
-
-    bestTrans[startId] = 0;
-    bestTime[startId] = 0;
-
-    priority_queue<pair<int, int>> pq;
-    pq.push({ 0, startId });
-
-    while (!pq.empty())
-    {
-        int encoded = -pq.top().first;
-        int u = pq.top().second;
-        pq.pop();
-
-        int curTrans = encoded / COST_BASE;
-        int curTime = encoded % COST_BASE;
-
-        if (curTrans > bestTrans[u]) continue;
-        if (curTrans == bestTrans[u] && curTime > bestTime[u]) continue;
-
-        if (u == endId) break;
-
-        if (isStationClosed(stations, u, startId, endId)) continue;
-
-        for (const Edge& e : graph[u])
-        {
-            int v = e.to;
-            if (v < 1 || v >= n) continue;
-            if (isStationClosed(stations, v, startId, endId)) continue;
-            if (blockedEdges.count({ u, v })) continue;
-
-            int addTrans = (prevLine[u] != "" && prevLine[u] != e.line_name) ? 1 : 0;
-            int newTrans = curTrans + addTrans;
-            int newTime = curTime + e.time;
-
-            if (newTrans < bestTrans[v] ||
-                (newTrans == bestTrans[v] && newTime < bestTime[v]))
-            {
-                bestTrans[v] = newTrans;
-                bestTime[v] = newTime;
-                prev[v] = u;
-                prevLine[v] = e.line_name;
-                pq.push({ -(newTrans * COST_BASE + newTime), v });
-            }
-        }
-    }
-
-    if (bestTime[endId] == INF) return Route();
-
-    Route r = buildRoute(startId, endId, prev, prevLine, bestTime[endId], stations);
-    r.transferCount = bestTrans[endId];
-    return r;
-}
-
-// ===== A* K最短路径（基于剪枝策略） =====
-
-// A*搜索节点池
-struct AStarNode
-{
-    int station;    // 当前站点ID
-    int time;       // 累计耗时
-    int trans;      // 累计换乘次数
-    int parent;     // 父节点在pool中的下标，-1表示根节点
-    string line;    // 到达该站点所乘线路名
-
-    AStarNode() : station(0), time(0), trans(0), parent(-1), line("") {}
-    AStarNode(int s, int t, int tr, int p, string l)
-        : station(s), time(t), trans(tr), parent(p), line(l) {}
-};
-
-// 从节点池中重建Route
-static Route reconstructRoute(const vector<AStarNode>& pool, int idx,
-                               const vector<Station>& stations)
-{
     Route r;
-    vector<int> path;
-    vector<string> lines;
+    if (mode == 0) {
+        r.totalTime = dist1[endId];
+        r.transferCount = dist2[endId];
+    }
+    else {
+        r.transferCount = dist1[endId];
+        r.totalTime = dist2[endId];
+    }
 
-    int cur = idx;
-    while (cur >= 0)
-    {
-        path.push_back(pool[cur].station);
-        lines.push_back(pool[cur].line);
-        cur = pool[cur].parent;
+    // 重建路径
+    vector<int> path;
+    for (int cur = endId; cur != -1; cur = prev[cur]) {
+        path.push_back(cur);
+        if (cur == startId) break;
     }
     reverse(path.begin(), path.end());
-    reverse(lines.begin(), lines.end());
-
-    r.totalTime = pool[idx].time;
+    if (path.empty() || path[0] != startId) return Route();
     r.stationIds = path;
 
-    // 统计换乘
+    // 重建换乘站
     string lastLine = "";
-    for (size_t i = 1; i < lines.size(); i++)
-    {
-        if (lastLine != "" && lines[i] != lastLine && path[i - 1] >= 1
-            && path[i - 1] - 1 < (int)stations.size())
-        {
-            r.transferCount++;
-            r.transferSta.push_back(stations[path[i - 1] - 1].name);
+    for (size_t i = 1; i < path.size(); ++i) {
+        int node = path[i];
+        if (node < 0 || node >= (int)prevLine.size()) continue;
+        string curLine = prevLine[node];
+        int prevStaIdx = path[i - 1] - 1;
+        if (lastLine != "" && curLine != "" && curLine != lastLine
+            && prevStaIdx >= 0 && prevStaIdx < (int)stations.size()) {
+            r.transferSta.push_back(stations[prevStaIdx].name);
         }
-        lastLine = lines[i];
+        if (curLine != "") lastLine = curLine;
     }
-
     return r;
 }
 
-// A* K最短时间路径（时间优先，时间相同时换乘少者优先）
-vector<Route> kShortestTimePaths(
-    const vector<vector<Edge>>& graph,
+// ===== 现有接口（单条路径） =====
+
+Route dijkstraShortestTime(const vector<vector<Edge>>& graph,
     int startId, int endId,
     const vector<Station>& stations,
-    int k)
-{
-    int n = (int)graph.size();
-    if (startId < 1 || startId >= n || endId < 1 || endId >= n)
-        return {};
-
-    // 1. 反向Dijkstra计算时间启发值 hTime[v]
-    vector<int> hTime = computeTimeHeuristic(graph, endId, stations);
-    if (hTime[startId] == INF) return {};
-
-    // 2. 正向A*搜索
-    vector<AStarNode> pool;
-    pool.push_back(AStarNode(startId, 0, 0, -1, ""));
-
-    // pq: (-(f * COST_BASE + trans), pool_idx)
-    // f = time + hTime，trans用于tie-break
-    priority_queue<pair<long long, int>> open;
-    open.push({ 0, 0 });
-
-    vector<Route> results;
-    int bound = INF;  // 第K优的时间上界
-
-    while (!open.empty() && (int)results.size() < k)
-    {
-        long long negKey = open.top().first;
-        int idx = open.top().second;
-        open.pop();
-
-        long long key = -negKey;
-        int f = (int)(key / COST_BASE);
-        int stateTrans = (int)(key % COST_BASE);
-
-        if (f >= bound) break;  // 剪枝：不可能优于已有第K条
-
-        AStarNode& node = pool[idx];
-
-        if (node.station == endId)
-        {
-            Route r = reconstructRoute(pool, idx, stations);
-            results.push_back(r);
-            if ((int)results.size() >= k)
-                bound = results.back().totalTime;
-            continue;
-        }
-
-        // 展开邻居（防止2-cycles：不回溯到父节点）
-        int parentStation = -1;
-        if (node.parent >= 0)
-            parentStation = pool[node.parent].station;
-
-        for (const Edge& e : graph[node.station])
-        {
-            int v = e.to;
-            if (v < 1 || v >= n) continue;
-            if (v == parentStation) continue;  // 防2-cycles
-            if (isStationClosed(stations, v, startId, endId)) continue;
-            if (hTime[v] == INF) continue;
-
-            int newTime = node.time + e.time;
-            int addTrans = (node.line != "" && node.line != e.line_name) ? 1 : 0;
-            int newTrans = node.trans + addTrans;
-            int newF = newTime + hTime[v];
-
-            if (newF >= bound) continue;  // 剪枝
-
-            pool.push_back(AStarNode(v, newTime, newTrans, idx, e.line_name));
-            int newIdx = (int)pool.size() - 1;
-            long long newKey = (long long)newF * COST_BASE + newTrans;
-            open.push({ -newKey, newIdx });
-        }
-    }
-
-    removeSameRoutes(results);
-    sort(results.begin(), results.end(), sortByTime);
-    if ((int)results.size() > k) results.resize(k);
-    return results;
+    const set<pair<int, int>>& blockedEdges) {
+    return dijkstraGeneral(graph, startId, endId, stations, blockedEdges, {}, 0);
 }
 
-// A* K最少换乘路径（换乘优先，换乘相同时时间少者优先）
-vector<Route> kMinTransferPaths(
-    const vector<vector<Edge>>& graph,
+Route dijkstraMinTransfer(const vector<vector<Edge>>& graph,
     int startId, int endId,
     const vector<Station>& stations,
-    int k)
-{
-    int n = (int)graph.size();
-    if (startId < 1 || startId >= n || endId < 1 || endId >= n)
-        return {};
+    const set<pair<int, int>>& blockedEdges) {
+    return dijkstraGeneral(graph, startId, endId, stations, blockedEdges, {}, 1);
+}
 
-    // 1. 反向Dijkstra计算编码启发值 hEnc[v]
-    vector<int> hEnc = computeEncodedHeuristic(graph, endId, stations);
-    if (hEnc[startId] == INF) return {};
+// ===== Yen 算法求 K 条最短路径 =====
 
-    // 2. 正向A*搜索
-    vector<AStarNode> pool;
-    pool.push_back(AStarNode(startId, 0, 0, -1, ""));
+static vector<Route> yenKSP(const vector<vector<Edge>>& graph,
+    int startId, int endId,
+    const vector<Station>& stations,
+    int K,
+    int mode) {
+    // mode=0: 时间优先, mode=1: 换乘优先
+    vector<Route> A;   // 结果路径
+    set<Route> B;      // 候选路径（用set自动排序，需定义operator<）
 
-    // pq: (-f, pool_idx)，f = g + h，其中g = trans*COST_BASE + time
-    priority_queue<pair<long long, int>> open;
-    open.push({ 0, 0 });
+    // 自定义比较函数，用于set排序
+    auto cmp = [mode](const Route& a, const Route& b) {
+        if (mode == 0) {
+            if (a.totalTime != b.totalTime) return a.totalTime < b.totalTime;
+            return a.transferCount < b.transferCount;
+        }
+        else {
+            if (a.transferCount != b.transferCount) return a.transferCount < b.transferCount;
+            return a.totalTime < b.totalTime;
+        }
+        };
+    // 使用set，但需提供比较器，由于Route没有默认<，我们使用自定义函数对象
+    // 这里用vector+手动排序更简单，因为K很小
+    vector<Route> candidates;
 
-    vector<Route> results;
-    long long bound = INF;  // 第K优的编码上界
+    // 1. 求第一条最短路径
+    Route first = dijkstraGeneral(graph, startId, endId, stations, {}, {}, mode);
+    if (first.stationIds.empty()) return A;
+    A.push_back(first);
 
-    while (!open.empty() && (int)results.size() < k)
-    {
-        long long negKey = open.top().first;
-        int idx = open.top().second;
-        open.pop();
+    // 2. 迭代求第k条
+    for (int k = 1; k < K; ++k) {
+        // 对前一条路径的每个偏离节点
+        Route prevPath = A.back();
+        int pathLen = prevPath.stationIds.size();
 
-        long long f = -negKey;
+        for (int i = 0; i < pathLen - 1; ++i) {
+            int spurNode = prevPath.stationIds[i];
 
-        if (f >= bound) break;  // 剪枝
+            // 构建根路径（从起点到偏离节点的前缀）
+            vector<int> rootPath;
+            for (int j = 0; j <= i; ++j) rootPath.push_back(prevPath.stationIds[j]);
 
-        AStarNode& node = pool[idx];
+            // 禁止边集合：从A中所有路径中，具有相同根路径的边
+            set<pair<int, int>> blockedEdges;
+            for (const Route& r : A) {
+                if (r.stationIds.size() <= i) continue;
+                bool samePrefix = true;
+                for (int j = 0; j <= i; ++j) {
+                    if (r.stationIds[j] != prevPath.stationIds[j]) { samePrefix = false; break; }
+                }
+                if (samePrefix && i + 1 < (int)r.stationIds.size()) {
+                    int u = r.stationIds[i];
+                    int v = r.stationIds[i + 1];
+                    blockedEdges.insert({ u, v });
+                }
+            }
 
-        if (node.station == endId)
-        {
-            Route r = reconstructRoute(pool, idx, stations);
-            results.push_back(r);
-            if ((int)results.size() >= k)
-                bound = (long long)r.transferCount * COST_BASE + r.totalTime;
-            continue;
+            // 禁止节点：根路径中除了偏离节点以外的节点（防止回到根路径）
+            set<int> blockedNodes;
+            for (int j = 0; j < i; ++j) blockedNodes.insert(prevPath.stationIds[j]);
+
+            // 计算从spurNode到终点的最短路径（避开禁止边和节点）
+            Route spurPath = dijkstraGeneral(graph, spurNode, endId, stations,
+                blockedEdges, blockedNodes, mode);
+            if (spurPath.stationIds.empty()) continue;
+
+            // 组合成完整路径：rootPath + spurPath除去第一个节点
+            Route totalPath;
+            totalPath.stationIds = rootPath;
+            totalPath.stationIds.insert(totalPath.stationIds.end(),
+                spurPath.stationIds.begin() + 1, spurPath.stationIds.end());
+            // 计算总时间和换乘
+            totalPath.totalTime = 0;
+            totalPath.transferCount = 0;
+            // 重新计算时间和换乘（利用原spurPath的信息叠加）
+            // 简单方式：通过遍历边重新计算
+            if (totalPath.stationIds.size() >= 2) {
+                // 由于我们无法直接获取边的时间，需要从图中查找
+                // 这里用累积：已知rootPath的时间+spurPath的时间-重叠部分
+                // 但更简单：重新用dijkstra计算代价？但那样可能又不一样。
+                // 我们采用保守方法：直接用spurPath的总时间加上rootPath的额外时间，
+                // 但rootPath的时间未知。所以我们还是重新计算：
+                // 方法：从totalPath中逐段累加时间和换乘。
+                int totalTime = 0, totalTrans = 0;
+                string lastLine = "";
+                // 遍历每段边，查找graph中的边
+                for (size_t idx = 0; idx < totalPath.stationIds.size() - 1; ++idx) {
+                    int u = totalPath.stationIds[idx];
+                    int v = totalPath.stationIds[idx + 1];
+                    // 在graph中查找边（u->v）
+                    bool found = false;
+                    for (const Edge& e : graph[u]) {
+                        if (e.to == v) {
+                            totalTime += e.time;
+                            if (lastLine != "" && lastLine != e.line_name) totalTrans++;
+                            lastLine = e.line_name;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        // 理论上不会发生
+                        totalTime = INF;
+                        break;
+                    }
+                }
+                if (totalTime >= INF) continue;
+                totalPath.totalTime = totalTime;
+                totalPath.transferCount = totalTrans;
+                // 重新计算换乘站
+                totalPath.transferSta.clear();
+                lastLine = "";
+                for (size_t idx = 0; idx < totalPath.stationIds.size() - 1; ++idx) {
+                    int u = totalPath.stationIds[idx];
+                    int v = totalPath.stationIds[idx + 1];
+                    for (const Edge& e : graph[u]) {
+                        if (e.to == v) {
+                            if (lastLine != "" && lastLine != e.line_name) {
+                                int staIdx = u - 1;
+                                if (staIdx >= 0 && staIdx < (int)stations.size())
+                                    totalPath.transferSta.push_back(stations[staIdx].name);
+                            }
+                            lastLine = e.line_name;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 检查是否已经存在于A或候选列表中
+            bool exist = false;
+            for (const Route& r : A) if (isSameRoute(r, totalPath)) { exist = true; break; }
+            if (!exist) {
+                for (const Route& r : candidates) if (isSameRoute(r, totalPath)) { exist = true; break; }
+            }
+            if (!exist && !totalPath.stationIds.empty()) {
+                candidates.push_back(totalPath);
+            }
         }
 
-        // 展开邻居
-        int parentStation = -1;
-        if (node.parent >= 0)
-            parentStation = pool[node.parent].station;
+        if (candidates.empty()) break;
 
-        for (const Edge& e : graph[node.station])
-        {
-            int v = e.to;
-            if (v < 1 || v >= n) continue;
-            if (v == parentStation) continue;  // 防2-cycles
-            if (isStationClosed(stations, v, startId, endId)) continue;
-            if (hEnc[v] == INF) continue;
-
-            int newTime = node.time + e.time;
-            int addTrans = (node.line != "" && node.line != e.line_name) ? 1 : 0;
-            int newTrans = node.trans + addTrans;
-            long long newG = (long long)newTrans * COST_BASE + newTime;
-            long long newF = newG + hEnc[v];
-
-            if (newF >= bound) continue;  // 剪枝
-
-            pool.push_back(AStarNode(v, newTime, newTrans, idx, e.line_name));
-            int newIdx = (int)pool.size() - 1;
-            open.push({ -newF, newIdx });
-        }
+        // 按代价排序
+        sort(candidates.begin(), candidates.end(), cmp);
+        // 选出代价最小的加入A
+        A.push_back(candidates.front());
+        candidates.erase(candidates.begin());
     }
 
-    removeSameRoutes(results);
-    sort(results.begin(), results.end(), sortByTransfer);
-    if ((int)results.size() > k) results.resize(k);
-    return results;
+    return A;
 }
 
-// ===== 显示函数 =====
+// ===== 对外接口 =====
 
-void showShortestTimePath(
-    const string& startName, const string& endName)
-{
-    auto nameMap = buildNameToIdMap(allStations);
-    auto itS = nameMap.find(startName);
-    auto itE = nameMap.find(endName);
-
-    if (itS == nameMap.end()) { cout << "未找到站点: " << startName << endl; return; }
-    if (itE == nameMap.end()) { cout << "未找到站点: " << endName << endl; return; }
-
-    Route r = dijkstraShortestTime(graph, itS->second, itE->second, allStations);
-    if (r.stationIds.empty())
-        cout << "无可达路径" << endl;
-    else
-        printRoute(r, allStations);
+vector<Route> kShortestTimePaths(const vector<vector<Edge>>& graph,
+    int startId, int endId,
+    const vector<Station>& stations,
+    int k) {
+    vector<Route> result = yenKSP(graph, startId, endId, stations, k, 0);
+    removeSameRoutes(result);
+    sort(result.begin(), result.end(), sortByTime);
+    if ((int)result.size() > k) result.resize(k);
+    return result;
 }
 
-void showKShortestTimePaths(
-    const string& startName, const string& endName,
-    int k)
-{
-    auto nameMap = buildNameToIdMap(allStations);
-    auto itS = nameMap.find(startName);
-    auto itE = nameMap.find(endName);
-
-    if (itS == nameMap.end()) { cout << "未找到站点: " << startName << endl; return; }
-    if (itE == nameMap.end()) { cout << "未找到站点: " << endName << endl; return; }
-
-    vector<Route> routes = kShortestTimePaths(graph, itS->second, itE->second, allStations, k);
-
-    if (routes.empty())
-        cout << "无可达路径" << endl;
-    else
-        for (int i = 0; i < (int)routes.size(); i++)
-            printRoute(routes[i], allStations, i + 1);
+vector<Route> kMinTransferPaths(const vector<vector<Edge>>& graph,
+    int startId, int endId,
+    const vector<Station>& stations,
+    int k) {
+    vector<Route> result = yenKSP(graph, startId, endId, stations, k, 1);
+    removeSameRoutes(result);
+    sort(result.begin(), result.end(), sortByTransfer);
+    if ((int)result.size() > k) result.resize(k);
+    return result;
 }
 
-void showMinTransferPath(
-    const string& startName, const string& endName)
-{
-    auto nameMap = buildNameToIdMap(allStations);
-    auto itS = nameMap.find(startName);
-    auto itE = nameMap.find(endName);
+// ===== 交互式显示函数 =====
 
-    if (itS == nameMap.end()) { cout << "未找到站点: " << startName << endl; return; }
-    if (itE == nameMap.end()) { cout << "未找到站点: " << endName << endl; return; }
-
-    Route r = dijkstraMinTransfer(graph, itS->second, itE->second, allStations);
-    if (r.stationIds.empty())
-        cout << "无可达路径" << endl;
-    else
-        printRoute(r, allStations);
+void showShortestTimePath(const string& startName, int startId,
+                          const string& endName, int endId) {
+    Route r = dijkstraShortestTime(graph, startId, endId, allStations);
+    if (r.stationIds.empty()) cout << "无可达路径" << endl;
+    else printRoute(r, allStations);
 }
 
-void showKMinTransferPaths(
-    const string& startName, const string& endName,
-    int k)
-{
-    auto nameMap = buildNameToIdMap(allStations);
-    auto itS = nameMap.find(startName);
-    auto itE = nameMap.find(endName);
+void showKShortestTimePaths(const string& startName, int startId,
+                            const string& endName, int endId, int k) {
+    vector<Route> routes = kShortestTimePaths(graph, startId, endId, allStations, k);
+    if (routes.empty()) cout << "无可达路径" << endl;
+    else for (int i = 0; i < (int)routes.size(); ++i) printRoute(routes[i], allStations, i + 1);
+}
 
-    if (itS == nameMap.end()) { cout << "未找到站点: " << startName << endl; return; }
-    if (itE == nameMap.end()) { cout << "未找到站点: " << endName << endl; return; }
+void showMinTransferPath(const string& startName, int startId,
+                         const string& endName, int endId) {
+    Route r = dijkstraMinTransfer(graph, startId, endId, allStations);
+    if (r.stationIds.empty()) cout << "无可达路径" << endl;
+    else printRoute(r, allStations);
+}
 
-    vector<Route> routes = kMinTransferPaths(graph, itS->second, itE->second, allStations, k);
-
-    if (routes.empty())
-        cout << "无可达路径" << endl;
-    else
-        for (int i = 0; i < (int)routes.size(); i++)
-            printRoute(routes[i], allStations, i + 1);
+void showKMinTransferPaths(const string& startName, int startId,
+                           const string& endName, int endId, int k) {
+    vector<Route> routes = kMinTransferPaths(graph, startId, endId, allStations, k);
+    if (routes.empty()) cout << "无可达路径" << endl;
+    else for (int i = 0; i < (int)routes.size(); ++i) printRoute(routes[i], allStations, i + 1);
 }
