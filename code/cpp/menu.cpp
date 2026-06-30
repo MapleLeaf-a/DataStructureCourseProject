@@ -247,24 +247,49 @@ void showClosedStations()
 // 显示指定线路的站点信息
 void showLineStations() 
 {
-	cout << "\n请输入线路号（exit退出）：" << endl;
+	cout << "请输入线路号（exit退出）：";
 	int lineID;
 	cin >> lineID;
 	vector<int> line = lineStations[lineID];
 
-	cout << "\n==== " << lineID << " 号线 站点信息 ====\n";
+	cout << "\n========= " << lineID << " 号线 站点信息 =========\n";
 	int n = line.size();
-	int maxLen = 0;
-	for (int i = 0; i < n; i++) {
-		int len = allStations[line[i] - 1].name.size();
-		if (len > maxLen) maxLen = len;
+
+	// 第一遍：计算最大显示列宽（中文=2列，ASCII=1列）
+	int maxDisp = 0;
+	for (int i = 0; i < n; i++)
+	{
+		string& nm = allStations[line[i] - 1].name;
+		int w = 0;
+		for (size_t j = 0; j < nm.size(); )
+		{
+			unsigned char c = nm[j];
+			if (c < 0x80)           { w += 1; j += 1; }
+			else if ((c >> 5) == 6) { w += 1; j += 2; }  // Latin 扩展（如 ·），1列
+			else                    { w += 2; j += 3; }  // CJK 汉字，2列
+		}
+		if (w > maxDisp) maxDisp = w;
 	}
+
+	// 第二遍：输出并对齐
 	for (int i = 0; i < n; i++)
 	{
 		string name = allStations[line[i] - 1].name;
 		string status = (allStations[line[i] - 1].isOpen ? "开放" : "关闭");
-		cout << setw(2) << right << (i + 1) << ". "
-			<< setw(maxLen) << left << name << "    " << status << endl;
+
+		// 计算当前站名显示列宽
+		int curDisp = 0;
+		for (size_t j = 0; j < name.size(); )
+		{
+			unsigned char c = name[j];
+			if (c < 0x80)           { curDisp += 1; j += 1; }
+			else if ((c >> 5) == 6) { curDisp += 2; j += 2; }
+			else                    { curDisp += 2; j += 3; }
+		}
+
+		cout << setw(3) << right << (i + 1) << ". " << name << left;
+		for (int p = curDisp; p < maxDisp; p++) cout << ' ';
+		cout << "    " << status << endl;
 	}
 }
 // 显示受关闭站点影响的线路
