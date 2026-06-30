@@ -9,12 +9,31 @@
 #include <unordered_map>
 using namespace std;
 
-//回车继续
+// 安全读取整数，处理非法输入（拒绝浮点数、非数字）
+int safeReadInt()
+{
+	int val;
+	cin >> val;
+	if (cin.fail())
+	{
+		cin.clear();
+		cin.ignore(numeric_limits<streamsize>::max(), '\n');
+		return -1;
+	}
+	// 检查后续字符是否为小数点（拒绝浮点数如 1.2）
+	if (cin.peek() == '.')
+	{
+		cin.ignore(numeric_limits<streamsize>::max(), '\n');
+		return -1;
+	}
+	return val;
+}
+
+//回车继续（交互模式下等待回车，管道模式下消费一行输入）
 void pauseAndReturn()
 {
 	cout << "\n按回车键继续...";
-	cin.ignore(numeric_limits<streamsize>::max(), '\n'); // 清掉之前 cin>> 遗留的换行符
-	cin.get();
+	cin.ignore(numeric_limits<streamsize>::max(), '\n');
 }
 
 //主菜单
@@ -27,7 +46,7 @@ int showMainMenu()
 	cout << "4. 退出系统\n";
 
 	cout << "请输入选项编号：";
-	int op; cin >> op;
+	int op = safeReadInt();
 
 	if (op == 4) cout << "\n已退出系统\n";
 
@@ -65,7 +84,7 @@ void showStationSubMenu()
 		cout << "8. 返回上级菜单\n";
 
 		cout << "请输入选项编号：";
-		cin >> op;
+		op = safeReadInt();
 		switch (op)
 		{
 		case 1:
@@ -85,13 +104,23 @@ void showStationSubMenu()
 		}
 		case 4:
 		{
-			if (restoreInitStation("data/Station_init.csv"))
+			cout << "您确定要恢复所有站点的初始状态?（Y/N）：";
+			char confirm; cin >> confirm;
+			cin.ignore(numeric_limits<streamsize>::max(), '\n'); // 清掉换行符
+			if (confirm == 'Y' || confirm == 'y')
 			{
-				cout << "\n全部站点状态已恢复至初始状态。\n";
+				if (restoreInitStation("data/csv/Station_init.csv"))
+				{
+					cout << "\n全部站点状态已恢复至初始状态。\n";
+				}
+				else
+				{
+					cout << "\n全部站点状态初始化失败。\n";
+				}
 			}
 			else
 			{
-				cout << "\n全部站点状态初始化失败。\n";
+				cout << "\n已取消恢复操作。\n";
 			}
 			break;
 		}
@@ -135,21 +164,36 @@ void showTimePathSubMenu()
 		cout << "3. 返回上级菜单\n";
 
 		cout << "请输入选项编号：";
-		cin >> op;
+		op = safeReadInt();
 		switch (op)
 		{
 		case 1:
-		{
-			string startName = get<0>(selectStationByKeyword("请输入起始站关键词："));
-			string endName = get<0>(selectStationByKeyword("请输入终点站关键词："));
-			showShortestTimePath(startName, endName);
-			break;
-		}
 		case 2:
 		{
-			string startName = get<0>(selectStationByKeyword("请输入起始站关键词："));
-			string endName = get<0>(selectStationByKeyword("请输入终点站关键词："));
-			showKShortestTimePaths(startName, endName, 3);
+			auto [startName, startId, startOpen] = selectStationByKeyword("请输入起始站关键词：");
+			if (startName.empty()) break;
+			auto [endName, endId, endOpen] = selectStationByKeyword("请输入终点站关键词：");
+			if (endName.empty()) break;
+
+			// 同站检查
+			if (startId == endId) {
+				cout << "\n起点和终点相同，无需进行路径规划。" << endl;
+				break;
+			}
+			// 起终点关闭检查
+			if (!startOpen) {
+				cout << "\n起点：" << startName << " 已关闭，无法进行路径规划。" << endl;
+				break;
+			}
+			if (!endOpen) {
+				cout << "\n终点：" << endName << " 已关闭，无法进行路径规划。" << endl;
+				break;
+			}
+
+			if (op == 1)
+				showShortestTimePath(startName, startId, endName, endId);
+			else
+				showKShortestTimePaths(startName, startId, endName, endId, 3);
 			break;
 		}
 		case 3:
@@ -176,21 +220,36 @@ void showTransferPathSubMenu()
 		cout << "3. 返回上级菜单\n";
 
 		cout << "请输入选项编号：";
-		cin >> op;
+		op = safeReadInt();
 		switch (op)
 		{
 		case 1:
-		{
-			string startName = get<0>(selectStationByKeyword("请输入起始站关键词："));
-			string endName = get<0>(selectStationByKeyword("请输入终点站关键词："));
-			showMinTransferPath(startName, endName);
-			break;
-		}
 		case 2:
 		{
-			string startName = get<0>(selectStationByKeyword("请输入起始站关键词："));
-			string endName = get<0>(selectStationByKeyword("请输入终点站关键词："));
-			showKMinTransferPaths(startName, endName, 3);
+			auto [startName, startId, startOpen] = selectStationByKeyword("请输入起始站关键词：");
+			if (startName.empty()) break;
+			auto [endName, endId, endOpen] = selectStationByKeyword("请输入终点站关键词：");
+			if (endName.empty()) break;
+
+			// 同站检查
+			if (startId == endId) {
+				cout << "\n起点和终点相同，无需进行路径规划。" << endl;
+				break;
+			}
+			// 起终点关闭检查
+			if (!startOpen) {
+				cout << "\n起点：" << startName << " 已关闭，无法进行路径规划。" << endl;
+				break;
+			}
+			if (!endOpen) {
+				cout << "\n终点：" << endName << " 已关闭，无法进行路径规划。" << endl;
+				break;
+			}
+
+			if (op == 1)
+				showMinTransferPath(startName, startId, endName, endId);
+			else
+				showKMinTransferPaths(startName, startId, endName, endId, 3);
 			break;
 		}
 		case 3:
@@ -219,7 +278,9 @@ void manualSetStationStatus()
 	string status;
 	cin >> status;
 	bool isOpen = (status == "开启");
-	setStationOpen(sid, isOpen);
+	if (setStationOpen(sid, isOpen))
+		cout << "\n修改站点: " << staName << " -> 状态: " << (isOpen ? "开启" : "关闭") << endl;
+	cout << "1 个站点的状态修改完成。" << endl;
 }
 // 显示当前所有关闭站点
 void showClosedStations() 
@@ -247,24 +308,54 @@ void showClosedStations()
 // 显示指定线路的站点信息
 void showLineStations() 
 {
-	cout << "\n请输入线路号（exit退出）：" << endl;
-	int lineID;
-	cin >> lineID;
+	cout << "请输入线路号：";
+	int lineID = safeReadInt();
+	if (lineID == -1) { cout << "线路编号无效。" << endl; return; }
+
+	if (lineStations.find(lineID) == lineStations.end())
+	{
+		cout << "\n线路编号无效，未找到 " << lineID << " 号线。" << endl;
+		return;
+	}
+
 	vector<int> line = lineStations[lineID];
 
 	cout << "\n==== " << lineID << " 号线 站点信息 ====\n";
 	int n = line.size();
+	cout << "共 " << n << " 个站点\n\n";
+
+	// 计算最大站名长度用于对齐
 	int maxLen = 0;
 	for (int i = 0; i < n; i++) {
 		int len = allStations[line[i] - 1].name.size();
 		if (len > maxLen) maxLen = len;
 	}
+
 	for (int i = 0; i < n; i++)
 	{
-		string name = allStations[line[i] - 1].name;
-		string status = (allStations[line[i] - 1].isOpen ? "开放" : "关闭");
+		Station& sta = allStations[line[i] - 1];
+		string name = sta.name;
+		string status = (sta.isOpen ? "开放" : "关闭");
+
 		cout << setw(2) << right << (i + 1) << ". "
-			<< setw(maxLen) << left << name << "    " << status << endl;
+			<< setw(maxLen) << left << name << "    " << status;
+
+		// 显示换乘信息（该站点所属的其他线路）
+		if (sta.lines.size() > 1)
+		{
+			cout << "    换乘：";
+			bool first = true;
+			for (int lid : sta.lines)
+			{
+				if (lid != lineID)
+				{
+					if (!first) cout << "、";
+					cout << lid << "号线";
+					first = false;
+				}
+			}
+		}
+		cout << endl;
 	}
 }
 // 显示受关闭站点影响的线路
