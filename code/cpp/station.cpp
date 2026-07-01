@@ -197,8 +197,7 @@ vector<Station*> findStationsByKeyword(const string& keyword)
     return result;
 }
 
-// 交互式选择站点（模糊搜索+展示+用户选择）
-// 返回 {站名, 站点ID, 是否运营}，取消/无匹配/无效编号时 name 为空
+// 交互式选择站点（模糊搜索+展示+用户选择），返回 {站名, 站点ID, 是否运营}，取消/无匹配/无效编号时 name 为空
 tuple<string, int, bool> selectStationByKeyword(const string& prompt)
 {
     cout << prompt;
